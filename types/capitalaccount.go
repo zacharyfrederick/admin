@@ -16,15 +16,16 @@ type CapitalAccount struct {
 }
 
 type CapitalAccountAction struct {
-	DocType     string `json:"docType"`
-	ID          string `json:"id"`
-	Type        string `json:"type"`
-	Amount      string `json:"amount"`
-	Full        bool   `json:"full"`
-	Status      string `json:"status"`
-	Description string `json:"description"`
-	Date        string `json:"Date"`
-	Period      int    `json:"period"`
+	DocType        string `json:"docType"`
+	ID             string `json:"id"`
+	CapitalAccount string `json:"capitalAccount"`
+	Type           string `json:"type"`
+	Amount         string `json:"amount"`
+	Full           bool   `json:"full"`
+	Status         string `json:"status"`
+	Description    string `json:"description"`
+	Date           string `json:"Date"`
+	Period         int    `json:"period"`
 }
 
 type HighWaterMark struct {

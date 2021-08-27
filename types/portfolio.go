@@ -27,3 +27,27 @@ type PortfolioAction struct {
 	Status      string   `json:"status"`
 	Description string   `json:"description"`
 }
+
+type CreatePortfolioRequest struct {
+	Fund string `json:"fund" binding:"required"`
+	Name string `json:"name" binding:"required"`
+}
+
+func ValidateCreatePortfolioRequest(r *CreatePortfolioRequest) bool {
+	return true
+}
+
+type CreatePortfolioActionRequest struct {
+	Fund     string `json:"fund" binding:"required"`
+	Type     string `json:"type" binding:"required"`
+	Date     string `json:"date" binding:"required"`
+	Period   int    `json:"period" binding:"required"`
+	Name     string `json:"name" binding:"required"`
+	CUSIP    string `json:"cusip" binding:"required"`
+	Amount   string `json:"amount" binding:"required"`
+	Currency string `json:"currency" binding:"required"`
+}
+
+func ValidateCreatePortfolioActionRequest(r *CreatePortfolioActionRequest) bool {
+	return true
+}

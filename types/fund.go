@@ -13,3 +13,12 @@ type Fund struct {
 	NextInvestorNumber int    `json:"nextInvestorNumber"`
 	PeriodUpdated      bool   `json:"periodUpdated"`
 }
+
+type CreateFundRequest struct {
+	Name          string `json: "name" binding: "required"`
+	InceptionDate string `json: "inceptionDate" binding: "required"`
+}
+
+func ValidateCreateFundRequest(r *CreateFundRequest) bool {
+	return true
+}

@@ -32,3 +32,25 @@ type HighWaterMark struct {
 	Amount string `json:"amount"`
 	Date   string `json:"date"`
 }
+
+type CreateCapitalAccountRequest struct {
+	Fund     string `json:"fund" binding:"required"`
+	Investor string `json:"investor" binding:"required"`
+}
+
+func ValidateCreateCapitalAccountRequest(r *CreateCapitalAccountRequest) bool {
+	return true
+}
+
+type CreateCapitalAccountActionRequest struct {
+	CapitalAccount string `json:"capitalAccount" binding:"required"`
+	Type           string `json:"type" binding:"required"`
+	Amount         string `json:"amount" binding:"required"`
+	Full           bool   `json:"full" binding:"required"`
+	Date           string `json:"date" binding:"required"`
+	Period         int    `json:"period" binding:"required"`
+}
+
+func ValidateCreateCapitalAccountActionRequest(r *CreateCapitalAccountActionRequest) bool {
+	return true
+}

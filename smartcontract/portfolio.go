@@ -133,3 +133,43 @@ func (s *AdminContract) QueryPortfolioByFund(ctx contractapi.TransactionContextI
 
 	return &portfolios, nil
 }
+
+func (s *AdminContract) QueryPortfolioById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.Portfolio, error) {
+	data, err := ctx.GetStub().GetState(capitalAccountId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if data == nil {
+		return nil, nil
+	}
+
+	var portfolio types.Portfolio
+	err = json.Unmarshal(data, &portfolio)
+	if err != nil {
+		return nil, err
+	}
+
+	return &portfolio, nil
+}
+
+func (s *AdminContract) QueryPortfolioActionById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.PortfolioAction, error) {
+	data, err := ctx.GetStub().GetState(capitalAccountId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if data == nil {
+		return nil, nil
+	}
+
+	var portfolioAction types.PortfolioAction
+	err = json.Unmarshal(data, &portfolioAction)
+	if err != nil {
+		return nil, err
+	}
+
+	return &portfolioAction, nil
+}

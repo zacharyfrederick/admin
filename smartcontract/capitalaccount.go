@@ -121,7 +121,6 @@ func (s *AdminContract) QueryCapitalAccountById(ctx contractapi.TransactionConte
 	}
 
 	return &capitalAccount, nil
-
 }
 
 func (s *AdminContract) QueryCapitalAccountsByInvestor(ctx contractapi.TransactionContextInterface, fundId string, investorId string) ([]*types.CapitalAccount, error) {
@@ -234,4 +233,24 @@ func (s *AdminContract) QueryCapitalAccountActionsByAccountPeriod(ctx contractap
 	}
 
 	return capitalAccountActions, nil
+}
+
+func (s *AdminContract) QueryCapitalAccountActionById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.CapitalAccountAction, error) {
+	data, err := ctx.GetStub().GetState(capitalAccountId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if data == nil {
+		return nil, nil
+	}
+
+	var capitalAccountAction types.CapitalAccountAction
+	err = json.Unmarshal(data, &capitalAccountAction)
+	if err != nil {
+		return nil, err
+	}
+
+	return &capitalAccountAction, nil
 }

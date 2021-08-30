@@ -50,6 +50,7 @@ func (s *AdminContract) CreateCapitalAccount(ctx contractapi.TransactionContextI
 		Deposits:            "0.0",
 		OwnershipPercentage: "0.0",
 		HighWaterMark:       types.HighWaterMark{Amount: "0.0", Date: "None"},
+		PeriodUpdated:       false,
 	}
 
 	capitalAccountJson, err := json.Marshal(capitalAccount)
@@ -105,11 +106,9 @@ func (s *AdminContract) CreateCapitalAccountAction(ctx contractapi.TransactionCo
 
 func (s *AdminContract) QueryCapitalAccountById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.CapitalAccount, error) {
 	data, err := ctx.GetStub().GetState(capitalAccountId)
-
 	if err != nil {
 		return nil, err
 	}
-
 	if data == nil {
 		return nil, nil
 	}
@@ -119,138 +118,102 @@ func (s *AdminContract) QueryCapitalAccountById(ctx contractapi.TransactionConte
 	if err != nil {
 		return nil, err
 	}
-
 	return &capitalAccount, nil
 }
 
 func (s *AdminContract) QueryCapitalAccountsByInvestor(ctx contractapi.TransactionContextInterface, fundId string, investorId string) ([]*types.CapitalAccount, error) {
 	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccount", "fund": "%s", "investor": "%s"}}`, fundId, investorId)
-
-	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resultsIterator.Close()
-
-	var capitalAccounts []*types.CapitalAccount
-	for resultsIterator.HasNext() {
-		queryResult, err := resultsIterator.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		var capitalAccount types.CapitalAccount
-		err = json.Unmarshal(queryResult.Value, &capitalAccount)
-		if err != nil {
-			return nil, err
-		}
-		capitalAccounts = append(capitalAccounts, &capitalAccount)
-	}
-
-	return capitalAccounts, nil
+	return executeCapitalAccountQuery(ctx, queryString)
 }
 
 func (s *AdminContract) QueryCapitalAccountsByFund(ctx contractapi.TransactionContextInterface, fundId string) ([]*types.CapitalAccount, error) {
+	return queryCapitalAccountsByFund(ctx, fundId)
+}
+
+func queryCapitalAccountsByFund(ctx contractapi.TransactionContextInterface, fundId string) ([]*types.CapitalAccount, error) {
 	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccount", "fund": "%s"}}`, fundId)
-
-	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resultsIterator.Close()
-
-	var capitalAccounts []*types.CapitalAccount
-	for resultsIterator.HasNext() {
-		queryResult, err := resultsIterator.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		var capitalAccount types.CapitalAccount
-		err = json.Unmarshal(queryResult.Value, &capitalAccount)
-		if err != nil {
-			return nil, err
-		}
-		capitalAccounts = append(capitalAccounts, &capitalAccount)
-	}
-
-	return capitalAccounts, nil
+	return executeCapitalAccountQuery(ctx, queryString)
 }
 
 func (s *AdminContract) QueryCapitalAccountActionsByFund(ctx contractapi.TransactionContextInterface, fundId string) ([]*types.CapitalAccountAction, error) {
 	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccount", "fund": "%s"}}`, fundId)
-
-	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resultsIterator.Close()
-
-	var capitalAccountActions []*types.CapitalAccountAction
-	for resultsIterator.HasNext() {
-		queryResult, err := resultsIterator.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		var capitalAccountAction types.CapitalAccountAction
-		err = json.Unmarshal(queryResult.Value, &capitalAccountAction)
-		if err != nil {
-			return nil, err
-		}
-		capitalAccountActions = append(capitalAccountActions, &capitalAccountAction)
-	}
-
-	return capitalAccountActions, nil
+	return executeCapitalAccountActionQuery(ctx, queryString)
 }
 
 func (s *AdminContract) QueryCapitalAccountActionsByAccountPeriod(ctx contractapi.TransactionContextInterface, fundId string, capitalAccountId string, period int) ([]*types.CapitalAccountAction, error) {
 	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccount", "fund": "%s", "capitalAccount": "%s", "period": "%d"}}`, fundId, capitalAccountId, period)
-
-	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resultsIterator.Close()
-
-	var capitalAccountActions []*types.CapitalAccountAction
-	for resultsIterator.HasNext() {
-		queryResult, err := resultsIterator.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		var capitalAccountAction types.CapitalAccountAction
-		err = json.Unmarshal(queryResult.Value, &capitalAccountAction)
-		if err != nil {
-			return nil, err
-		}
-		capitalAccountActions = append(capitalAccountActions, &capitalAccountAction)
-	}
-
-	return capitalAccountActions, nil
+	return executeCapitalAccountActionQuery(ctx, queryString)
 }
 
 func (s *AdminContract) QueryCapitalAccountActionById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.CapitalAccountAction, error) {
 	data, err := ctx.GetStub().GetState(capitalAccountId)
-
 	if err != nil {
 		return nil, err
 	}
-
 	if data == nil {
 		return nil, nil
 	}
-
 	var capitalAccountAction types.CapitalAccountAction
 	err = json.Unmarshal(data, &capitalAccountAction)
 	if err != nil {
 		return nil, err
 	}
-
 	return &capitalAccountAction, nil
+}
+
+func QueryCapitalAccountActionsByFundPeriod(ctx contractapi.TransactionContextInterface, fundId string, period int) ([]*types.CapitalAccountAction, error) {
+	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccount", "fund": "%s", "period": "%d"}}`, fundId, period)
+	return executeCapitalAccountActionQuery(ctx, queryString)
+}
+
+func executeCapitalAccountQuery(ctx contractapi.TransactionContextInterface, queryString string) ([]*types.CapitalAccount, error) {
+	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resultsIterator.Close()
+
+	var capitalAccounts []*types.CapitalAccount
+	for resultsIterator.HasNext() {
+		queryResult, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		var capitalAccount types.CapitalAccount
+		err = json.Unmarshal(queryResult.Value, &capitalAccount)
+		if err != nil {
+			return nil, err
+		}
+		capitalAccounts = append(capitalAccounts, &capitalAccount)
+	}
+
+	return capitalAccounts, nil
+}
+
+func executeCapitalAccountActionQuery(ctx contractapi.TransactionContextInterface, queryString string) ([]*types.CapitalAccountAction, error) {
+	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resultsIterator.Close()
+
+	var capitalAccountActions []*types.CapitalAccountAction
+	for resultsIterator.HasNext() {
+		queryResult, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		var capitalAccountAction types.CapitalAccountAction
+		err = json.Unmarshal(queryResult.Value, &capitalAccountAction)
+		if err != nil {
+			return nil, err
+		}
+		capitalAccountActions = append(capitalAccountActions, &capitalAccountAction)
+	}
+
+	return capitalAccountActions, nil
 }

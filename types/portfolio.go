@@ -18,7 +18,6 @@ type Security struct {
 type PortfolioAction struct {
 	DocType     string   `json:"docType"`
 	ID          string   `json:"id"`
-	Fund        string   `json:"fund"`
 	Portfolio   string   `json:"portfolio"`
 	Security    Security `json:"security"`
 	Type        string   `json:"type"`
@@ -38,14 +37,14 @@ func ValidateCreatePortfolioRequest(r *CreatePortfolioRequest) bool {
 }
 
 type CreatePortfolioActionRequest struct {
-	Fund     string `json:"fund" binding:"required"`
-	Type     string `json:"type" binding:"required"`
-	Date     string `json:"date" binding:"required"`
-	Period   int    `json:"period" binding:"required"`
-	Name     string `json:"name" binding:"required"`
-	CUSIP    string `json:"cusip" binding:"required"`
-	Amount   string `json:"amount" binding:"required"`
-	Currency string `json:"currency" binding:"required"`
+	Portfolio string `json:"portfolio" binding:"required"`
+	Type      string `json:"type" binding:"required"`
+	Date      string `json:"date" binding:"required"`
+	Period    int    `json:"period" binding:"isdefault|required"`
+	Name      string `json:"name" binding:"required"`
+	CUSIP     string `json:"cusip" binding:"required"`
+	Amount    string `json:"amount" binding:"required"`
+	Currency  string `json:"currency" binding:"required"`
 }
 
 func ValidateCreatePortfolioActionRequest(r *CreatePortfolioActionRequest) bool {

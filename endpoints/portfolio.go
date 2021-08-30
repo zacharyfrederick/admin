@@ -27,7 +27,7 @@ func (w *EndpointWrapper) PostPortfoliosEndpoint(c *gin.Context) {
 
 	porfolioId := uuid.NewV4().String()
 
-	result, err := w.Contract.SubmitTransaction("CreateCapitalAccount", porfolioId, createPortfolioRequest.Fund, createPortfolioRequest.Name)
+	result, err := w.Contract.SubmitTransaction("CreatePortfolio", porfolioId, createPortfolioRequest.Fund, createPortfolioRequest.Name)
 	if err != nil {
 		errorString := fmt.Sprintf("error submitting request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errorString})
@@ -35,7 +35,7 @@ func (w *EndpointWrapper) PostPortfoliosEndpoint(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"porfolioId": porfolioId})
+	c.JSON(http.StatusOK, gin.H{"portfolioId": porfolioId})
 }
 
 func (w *EndpointWrapper) GetPortfolioByIdEndpoint(c *gin.Context) {
@@ -68,6 +68,7 @@ func (w *EndpointWrapper) PostPortfolioActionEndpoint(c *gin.Context) {
 
 	err := c.BindJSON(&createPortfolioActionRequest)
 	if err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required parameters"})
 		return
 	}
@@ -79,9 +80,9 @@ func (w *EndpointWrapper) PostPortfolioActionEndpoint(c *gin.Context) {
 	}
 
 	transactionId := uuid.NewV4().String()
+	period := fmt.Sprintf("%d", createPortfolioActionRequest.Period)
 
-	period := string(createPortfolioActionRequest.Period)
-	result, err := w.Contract.SubmitTransaction("CreatePortfolioAction", transactionId, createPortfolioActionRequest.Fund, createPortfolioActionRequest.Type, createPortfolioActionRequest.Date, period, createPortfolioActionRequest.Name, createPortfolioActionRequest.CUSIP, createPortfolioActionRequest.Amount, createPortfolioActionRequest.Currency)
+	result, err := w.Contract.SubmitTransaction("CreatePortfolioAction", transactionId, createPortfolioActionRequest.Portfolio, createPortfolioActionRequest.Type, createPortfolioActionRequest.Date, period, createPortfolioActionRequest.Name, createPortfolioActionRequest.CUSIP, createPortfolioActionRequest.Amount, createPortfolioActionRequest.Currency)
 	if err != nil {
 		errorString := fmt.Sprintf("error submitting request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errorString})

@@ -42,7 +42,7 @@ func (s *AdminContract) CreatePortfolio(ctx contractapi.TransactionContextInterf
 	return ctx.GetStub().PutState(portfolioId, portfolioJson)
 }
 
-func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContextInterface, actionId string, fundId string, portfolioId string, type_ string, date string, period int, name string, cusip string, amount string, currency string) error {
+func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContextInterface, actionId string, portfolioId string, type_ string, date string, period int, name string, cusip string, amount string, currency string) error {
 	if type_ != "buy" && type_ != "sell" {
 		return fmt.Errorf("the specified action is invalid for a portfolio: '%s'", type_)
 	}
@@ -57,7 +57,6 @@ func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContext
 	portfolioAction := types.PortfolioAction{
 		DocType:   types.DOCTYPE_PORTFOLIOACTION,
 		Portfolio: portfolioId,
-		Fund:      fundId,
 		Type:      type_,
 		Date:      date,
 		ID:        actionId,
@@ -74,64 +73,9 @@ func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContext
 	return ctx.GetStub().PutState(actionId, portfolioActionJson)
 }
 
-func (s *AdminContract) QueryPortfolioByName(ctx contractapi.TransactionContextInterface, fundId string, name string) (*types.Portfolio, error) {
-	queryString := fmt.Sprintf(`{"selector":{"docType": "portfolio", "fund": "%s", "name": "%s"}}`, fundId, name)
-
-	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resultsIterator.Close()
-
-	var portfolios types.Portfolio
-	for resultsIterator.HasNext() {
-		queryResult, err := resultsIterator.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(queryResult.Value, &portfolios)
-		if err != nil {
-			return nil, err
-		}
-
-		if true {
-			break
-		}
-	}
-
-	return &portfolios, nil
-}
-
-func (s *AdminContract) QueryPortfolioByFund(ctx contractapi.TransactionContextInterface, fundId string) (*types.Portfolio, error) {
+func (s *AdminContract) QueryPortfoliosByFund(ctx contractapi.TransactionContextInterface, fundId string) ([]*types.Portfolio, error) {
 	queryString := fmt.Sprintf(`{"selector":{"docType": "portfolio", "fund": "%s"}}`, fundId)
-
-	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resultsIterator.Close()
-
-	var portfolios types.Portfolio
-	for resultsIterator.HasNext() {
-		queryResult, err := resultsIterator.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(queryResult.Value, &portfolios)
-		if err != nil {
-			return nil, err
-		}
-
-		if true {
-			break
-		}
-	}
-
-	return &portfolios, nil
+	return executePortfolioQuery(ctx, queryString)
 }
 
 func (s *AdminContract) QueryPortfolioById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.Portfolio, error) {
@@ -172,4 +116,56 @@ func (s *AdminContract) QueryPortfolioActionById(ctx contractapi.TransactionCont
 	}
 
 	return &portfolioAction, nil
+}
+
+func executePortfolioQuery(ctx contractapi.TransactionContextInterface, queryString string) ([]*types.Portfolio, error) {
+	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resultsIterator.Close()
+
+	var portfolios []*types.Portfolio
+	for resultsIterator.HasNext() {
+		queryResult, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		var portfolio types.Portfolio
+		err = json.Unmarshal(queryResult.Value, &portfolio)
+		if err != nil {
+			return nil, err
+		}
+		portfolios = append(portfolios, &portfolio)
+	}
+
+	return portfolios, nil
+}
+
+func executePortfolioActionsQuery(ctx contractapi.TransactionContextInterface, queryString string) ([]*types.PortfolioAction, error) {
+	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resultsIterator.Close()
+
+	var portfolioActions []*types.PortfolioAction
+	for resultsIterator.HasNext() {
+		queryResult, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		var portfolioAction types.PortfolioAction
+		err = json.Unmarshal(queryResult.Value, &portfolioAction)
+		if err != nil {
+			return nil, err
+		}
+		portfolioActions = append(portfolioActions, &portfolioAction)
+	}
+
+	return portfolioActions, nil
 }

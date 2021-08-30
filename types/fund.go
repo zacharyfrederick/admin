@@ -15,8 +15,8 @@ type Fund struct {
 }
 
 type CreateFundRequest struct {
-	Name          string `json: "name" binding: "required"`
-	InceptionDate string `json: "inceptionDate" binding: "required"`
+	Name          string `json: "name" binding:"required"`
+	InceptionDate string `json:"inceptionDate" binding:"required"`
 }
 
 func ValidateCreateFundRequest(r *CreateFundRequest) bool {

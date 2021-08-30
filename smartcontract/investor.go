@@ -53,33 +53,3 @@ func (s *AdminContract) QueryInvestorById(ctx contractapi.TransactionContextInte
 
 	return &investor, nil
 }
-
-func (s *AdminContract) QueryInvestorByName(ctx contractapi.TransactionContextInterface, name string) (*types.Investor, error) {
-	queryString := fmt.Sprintf(`{"selector":{"docType":"investor", "name": "%s"}}`, name)
-
-	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resultsIterator.Close()
-
-	var investor types.Investor
-	for resultsIterator.HasNext() {
-		queryResult, err := resultsIterator.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(queryResult.Value, &investor)
-		if err != nil {
-			return nil, err
-		}
-
-		if true {
-			break
-		}
-	}
-
-	return &investor, nil
-}

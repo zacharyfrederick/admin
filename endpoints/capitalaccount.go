@@ -80,7 +80,7 @@ func (w *EndpointWrapper) PostCapitalAccountActionEndpoint(c *gin.Context) {
 
 	transactionId := uuid.NewV4().String()
 	full := fmt.Sprintf("%t", createCapitalAccountActionRequest.Full)
-	period := string(createCapitalAccountActionRequest.Period)
+	period := fmt.Sprintf("%d", createCapitalAccountActionRequest.Period)
 
 	result, err := w.Contract.SubmitTransaction("CreateCapitalAccountAction", transactionId, createCapitalAccountActionRequest.CapitalAccount, createCapitalAccountActionRequest.Type, createCapitalAccountActionRequest.Amount, full, createCapitalAccountActionRequest.Date, period)
 	if err != nil {

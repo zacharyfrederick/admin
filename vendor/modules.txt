@@ -371,6 +371,9 @@ github.com/rogpeppe/go-internal/semver
 # github.com/satori/go.uuid v1.2.0
 ## explicit
 github.com/satori/go.uuid
+# github.com/shopspring/decimal v1.2.0
+## explicit; go 1.13
+github.com/shopspring/decimal
 # github.com/spf13/afero v1.3.1
 ## explicit; go 1.13
 github.com/spf13/afero

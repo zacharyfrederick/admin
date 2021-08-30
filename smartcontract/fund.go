@@ -2,9 +2,11 @@ package smartcontract
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/shopspring/decimal"
 
 	"github.com/zacharyfrederick/admin/types"
 )
@@ -41,37 +43,6 @@ func (s *AdminContract) CreateFund(ctx contractapi.TransactionContextInterface, 
 	return ctx.GetStub().PutState(fundId, fundJson)
 }
 
-func (s *AdminContract) QueryFundByName(ctx contractapi.TransactionContextInterface, name string) (*types.Fund, error) {
-	queryString := fmt.Sprintf(`{"selector":{"docType":"fund", "name": "%s"}}`, name)
-
-	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resultsIterator.Close()
-
-	var fund types.Fund
-	for resultsIterator.HasNext() {
-		queryResult, err := resultsIterator.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		var fund types.Fund
-		err = json.Unmarshal(queryResult.Value, &fund)
-		if err != nil {
-			return nil, err
-		}
-
-		if true {
-			break
-		}
-	}
-
-	return &fund, nil
-}
-
 func (s *AdminContract) QueryFundById(ctx contractapi.TransactionContextInterface, fundId string) (*types.Fund, error) {
 	data, err := ctx.GetStub().GetState(fundId)
 
@@ -90,4 +61,82 @@ func (s *AdminContract) QueryFundById(ctx contractapi.TransactionContextInterfac
 	}
 
 	return &fund, nil
+}
+
+func (s *AdminContract) BootstrapFundById(ctx contractapi.TransactionContextInterface, fundId string) (*types.Fund, error) {
+	fund, err := s.QueryFundById(ctx, fundId)
+	if err != nil {
+		return nil, err
+	}
+	if fund == nil {
+		errorString := errors.New("A fund with that id does not exist")
+		return nil, errorString
+	}
+	if fund.CurrentPeriod != 0 {
+		errorString := errors.New("This fund cannot be bootstrapped, it is not in period 0")
+		return nil, errorString
+	}
+
+	totalDeposits, err := CalculateFundDeposits(ctx, fund)
+	if err != nil {
+		return fund, err
+	}
+
+	fund.AggregateDeposits = totalDeposits
+	fund.PeriodClosingValue = totalDeposits
+	fund.CurrentPeriod = fund.CurrentPeriod + 1
+
+	fundJson, err := json.Marshal(fund)
+	if err != nil {
+		return fund, err
+	}
+
+	err = ctx.GetStub().PutState(fundId, fundJson)
+	if err != nil {
+		return fund, err
+	}
+
+	return fund, nil
+}
+
+func CalculateFundClosingValue(ctx contractapi.TransactionContextInterface, fund *types.Fund) (string, error) {
+	if fund.CurrentPeriod == 0 {
+		return "0.0", nil
+	}
+	return "", errors.New("unimplemented") // TODO calculate the funds closing value based on market valuatiion
+}
+
+func CalculateFundFixedFees(ctx contractapi.TransactionContextInterface, fund *types.Fund) (string, error) {
+	if fund.CurrentPeriod == 0 {
+		return "0.0", nil
+	}
+	return "", errors.New("unimplemented") // TODO calculate the funds closing value based on market valuatiion
+}
+
+func CalculateFundDeposits(ctx contractapi.TransactionContextInterface, fund *types.Fund) (string, error) {
+	capitalAccountActions, err := QueryCapitalAccountActionsByFundPeriod(ctx, fund.ID, fund.CurrentPeriod)
+	if err != nil {
+		return "", err
+	}
+	totalDeposits, err := AggregateDepositsFromActions(capitalAccountActions)
+	if err != nil {
+		return "", err
+	}
+	return totalDeposits, nil
+}
+
+func AggregateDepositsFromActions(actions []*types.CapitalAccountAction) (string, error) {
+	total, _ := decimal.NewFromString("0.0")
+
+	for _, action := range actions {
+		if action.Type == "withdrawal" {
+			continue
+		}
+		deposit, err := decimal.NewFromString(action.Amount)
+		if err != nil {
+			return "", err
+		}
+		total = total.Add(deposit)
+	}
+	return total.String(), nil
 }

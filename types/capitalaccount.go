@@ -13,6 +13,7 @@ type CapitalAccount struct {
 	Deposits            string        `json:"deposits"`
 	OwnershipPercentage string        `json:"ownershipPercentage"`
 	HighWaterMark       HighWaterMark `json:"highWaterMark"`
+	PeriodUpdated       bool          `json:"periodUpdated"`
 }
 
 type CapitalAccountAction struct {
@@ -46,9 +47,9 @@ type CreateCapitalAccountActionRequest struct {
 	CapitalAccount string `json:"capitalAccount" binding:"required"`
 	Type           string `json:"type" binding:"required"`
 	Amount         string `json:"amount" binding:"required"`
-	Full           bool   `json:"full" binding:"required"`
+	Full           bool   `json:"full" binding:"isdefault|required"`
 	Date           string `json:"date" binding:"required"`
-	Period         int    `json:"period" binding:"required"`
+	Period         int    `json:"period" binding:"isdefault|required"`
 }
 
 func ValidateCreateCapitalAccountActionRequest(r *CreateCapitalAccountActionRequest) bool {

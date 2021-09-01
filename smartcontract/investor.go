@@ -36,20 +36,16 @@ func (s *AdminContract) CreateInvestor(ctx contractapi.TransactionContextInterfa
 
 func (s *AdminContract) QueryInvestorById(ctx contractapi.TransactionContextInterface, investorId string) (*types.Investor, error) {
 	data, err := ctx.GetStub().GetState(investorId)
-
 	if err != nil {
 		return nil, err
 	}
-
 	if data == nil {
 		return nil, nil
 	}
-
 	var investor types.Investor
 	err = json.Unmarshal(data, &investor)
 	if err != nil {
 		return nil, err
 	}
-
 	return &investor, nil
 }

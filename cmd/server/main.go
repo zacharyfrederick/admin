@@ -26,6 +26,7 @@ func main() {
 	router := gin.Default()
 	router.POST("/funds", endpointWrapper.PostFundEndpoint)
 	router.GET("/funds/:id", endpointWrapper.GetFundByIdEndpoint)
+	router.GET("/funds/:id/*action", endpointWrapper.GetFundActionEndpoint)
 
 	router.POST("/investors", endpointWrapper.PostInvestorEndpoint)
 	router.GET("/investors/:id", endpointWrapper.GetInvestorByIdEndpoint)

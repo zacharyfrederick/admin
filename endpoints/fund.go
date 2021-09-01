@@ -43,16 +43,14 @@ func (a *EndpointWrapper) GetFundByIdEndpoint(c *gin.Context) {
 		errorString := fmt.Sprintf("error evaluating request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errorString})
 		fmt.Println(result)
+		return
 	}
-
 	if len(result) == 0 {
 		c.JSON(http.StatusOK, "")
 		return
 	}
-
 	var fund types.Fund
 	jsonErr := json.Unmarshal(result, &fund)
-
 	if jsonErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error unmarshaling json"})
 		fmt.Println(jsonErr)
@@ -61,12 +59,9 @@ func (a *EndpointWrapper) GetFundByIdEndpoint(c *gin.Context) {
 	c.JSON(http.StatusOK, fund)
 }
 
-func (a *EndpointWrapper) GetFundAction(c *gin.Context) {
+func (a *EndpointWrapper) GetFundActionEndpoint(c *gin.Context) {
 	fundId := c.Param("id")
 	action := c.Param("action")
-
-	fmt.Println(fundId)
-
 	switch action {
 	case "/investors":
 		fmt.Println("investors")
@@ -78,10 +73,21 @@ func (a *EndpointWrapper) GetFundAction(c *gin.Context) {
 		fmt.Println("capitalaccountactions")
 	case "/portfolioactions":
 		fmt.Println("portfolioactions")
+	case "/bootstrap":
+		result, err := a.Contract.SubmitTransaction("BootstrapFund", fundId)
+		if err != nil {
+			fmt.Println(result)
+			errorString := fmt.Sprintf("error evaluating request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": errorString})
+			return
+		}
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid action supplied"})
 		return
 	}
-
 	c.JSON(http.StatusOK, "success")
+}
+
+func (w *EndpointWrapper) bootstrapFund(fundId string) error {
+	return nil
 }

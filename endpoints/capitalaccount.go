@@ -68,6 +68,7 @@ func (w *EndpointWrapper) PostCapitalAccountActionEndpoint(c *gin.Context) {
 
 	err := c.BindJSON(&createCapitalAccountActionRequest)
 	if err != nil {
+		fmt.Printf("%v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required parameters"})
 		return
 	}

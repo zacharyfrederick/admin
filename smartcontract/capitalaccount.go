@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/shopspring/decimal"
 	"github.com/zacharyfrederick/admin/types"
 	"github.com/zacharyfrederick/admin/utils"
 )
@@ -37,6 +38,21 @@ func (s *AdminContract) CreateCapitalAccount(ctx contractapi.TransactionContextI
 		return fmt.Errorf("an investor with id '%s' does not exist", investorId)
 	}
 
+	closingValueMap := make(map[string]string)
+	closingValueMap["0"] = decimal.Zero.String()
+
+	openingValueMap := make(map[string]string)
+	openingValueMap["0"] = decimal.Zero.String()
+
+	fixedFeesMap := make(map[string]string)
+	fixedFeesMap["0"] = decimal.Zero.String()
+
+	depositMap := make(map[string]string)
+	depositMap["0"] = decimal.Zero.String()
+
+	ownershipPercentageMap := make(map[string]string)
+	ownershipPercentageMap["0"] = decimal.Zero.String()
+
 	capitalAccount := types.CapitalAccount{
 		DocType:             types.DOCTYPE_CAPITALACCOUNT,
 		ID:                  capitalAccountId,
@@ -44,11 +60,11 @@ func (s *AdminContract) CreateCapitalAccount(ctx contractapi.TransactionContextI
 		Investor:            investorId,
 		Number:              fund.NextInvestorNumber,
 		CurrentPeriod:       fund.CurrentPeriod,
-		PeriodClosingValue:  "0.0",
-		PeriodOpeningValue:  "0.0",
-		FixedFees:           "0.0",
-		Deposits:            "0.0",
-		OwnershipPercentage: "0.0",
+		ClosingValue:        closingValueMap,
+		OpeningValue:        openingValueMap,
+		FixedFees:           fixedFeesMap,
+		Deposits:            depositMap,
+		OwnershipPercentage: ownershipPercentageMap,
 		HighWaterMark:       types.HighWaterMark{Amount: "0.0", Date: "None"},
 		PeriodUpdated:       false,
 	}
@@ -136,12 +152,17 @@ func queryCapitalAccountsByFund(ctx contractapi.TransactionContextInterface, fun
 }
 
 func (s *AdminContract) QueryCapitalAccountActionsByFund(ctx contractapi.TransactionContextInterface, fundId string) ([]*types.CapitalAccountAction, error) {
-	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccount", "fund": "%s"}}`, fundId)
+	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccountAction", "fund": "%s"}}`, fundId)
+	return executeCapitalAccountActionQuery(ctx, queryString)
+}
+
+func (s *AdminContract) QueryCapitalAccountActionsByFundPeriod(ctx contractapi.TransactionContextInterface, fundId string, period int) ([]*types.CapitalAccountAction, error) {
+	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccountAction", "fund": "%s", "period": "%d"}}`, fundId, period)
 	return executeCapitalAccountActionQuery(ctx, queryString)
 }
 
 func (s *AdminContract) QueryCapitalAccountActionsByAccountPeriod(ctx contractapi.TransactionContextInterface, fundId string, capitalAccountId string, period int) ([]*types.CapitalAccountAction, error) {
-	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccount", "fund": "%s", "capitalAccount": "%s", "period": "%d"}}`, fundId, capitalAccountId, period)
+	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccountAction", "fund": "%s", "capitalAccount": "%s", "period": "%d"}}`, fundId, capitalAccountId, period)
 	return executeCapitalAccountActionQuery(ctx, queryString)
 }
 
@@ -162,7 +183,27 @@ func (s *AdminContract) QueryCapitalAccountActionById(ctx contractapi.Transactio
 }
 
 func QueryCapitalAccountActionsByFundPeriod(ctx contractapi.TransactionContextInterface, fundId string, period int) ([]*types.CapitalAccountAction, error) {
-	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccount", "fund": "%s", "period": "%d"}}`, fundId, period)
+	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccountAction", "fund": "%s", "period": "%d"}}`, fundId, period)
+	return executeCapitalAccountActionQuery(ctx, queryString)
+}
+
+func QueryDepositsByFundPeriod(ctx contractapi.TransactionContextInterface, fundId string, period int) ([]*types.CapitalAccountAction, error) {
+	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccountAction", "fund": "%s", "period": "%d", "type": "deposit"}}`, fundId, period)
+	return executeCapitalAccountActionQuery(ctx, queryString)
+}
+
+func QueryWithdrawalsByFundPeriod(ctx contractapi.TransactionContextInterface, fundId string, period int) ([]*types.CapitalAccountAction, error) {
+	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccountAction", "fund": "%s", "period": "%d", "type": "withdrawal"}}`, fundId, period)
+	return executeCapitalAccountActionQuery(ctx, queryString)
+}
+
+func QueryDepositsByFundAccountPeriod(ctx contractapi.TransactionContextInterface, capitalAccountId string, period int) ([]*types.CapitalAccountAction, error) {
+	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccountAction", "period": %d, "type": "deposit", "capitalAccount": "%s"}}`, period, capitalAccountId)
+	return executeCapitalAccountActionQuery(ctx, queryString)
+}
+
+func QueryWithdrawalsByFundAccountPeriod(ctx contractapi.TransactionContextInterface, capitalAccountId string, period int) ([]*types.CapitalAccountAction, error) {
+	queryString := fmt.Sprintf(`{"selector":{"docType":"capitalAccountAction", "period": %d, "type": "withdrawal", "capitalAccount": "%s"}}`, period, capitalAccountId)
 	return executeCapitalAccountActionQuery(ctx, queryString)
 }
 

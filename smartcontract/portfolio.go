@@ -14,11 +14,9 @@ func (s *AdminContract) CreatePortfolio(ctx contractapi.TransactionContextInterf
 	if err != nil {
 		return err
 	}
-
 	if idInUse {
 		return fmt.Errorf("an object with that id already exists")
 	}
-
 	fund, err := s.QueryFundById(ctx, fundId)
 	if err != nil {
 		return err
@@ -26,19 +24,16 @@ func (s *AdminContract) CreatePortfolio(ctx contractapi.TransactionContextInterf
 	if fund == nil {
 		return fmt.Errorf("a fund with the specified id does not exist")
 	}
-
 	Portfolio := types.Portfolio{
 		DocType: types.DOCTYPE_PORTFOLIO,
 		Name:    name,
 		ID:      portfolioId,
 		Fund:    fundId,
 	}
-
 	portfolioJson, err := json.Marshal(Portfolio)
 	if err != nil {
 		return err
 	}
-
 	return ctx.GetStub().PutState(portfolioId, portfolioJson)
 }
 
@@ -46,14 +41,12 @@ func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContext
 	if type_ != "buy" && type_ != "sell" {
 		return fmt.Errorf("the specified action is invalid for a portfolio: '%s'", type_)
 	}
-
 	security := types.Security{
 		Name:     name,
 		CUSIP:    cusip,
 		Amount:   amount,
 		Currency: currency,
 	}
-
 	portfolioAction := types.PortfolioAction{
 		DocType:   types.DOCTYPE_PORTFOLIOACTION,
 		Portfolio: portfolioId,
@@ -63,13 +56,10 @@ func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContext
 		Security:  security,
 		Period:    period,
 	}
-
 	portfolioActionJson, err := json.Marshal(portfolioAction)
-
 	if err != nil {
 		return err
 	}
-
 	return ctx.GetStub().PutState(actionId, portfolioActionJson)
 }
 
@@ -80,41 +70,33 @@ func (s *AdminContract) QueryPortfoliosByFund(ctx contractapi.TransactionContext
 
 func (s *AdminContract) QueryPortfolioById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.Portfolio, error) {
 	data, err := ctx.GetStub().GetState(capitalAccountId)
-
 	if err != nil {
 		return nil, err
 	}
-
 	if data == nil {
 		return nil, nil
 	}
-
 	var portfolio types.Portfolio
 	err = json.Unmarshal(data, &portfolio)
 	if err != nil {
 		return nil, err
 	}
-
 	return &portfolio, nil
 }
 
 func (s *AdminContract) QueryPortfolioActionById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.PortfolioAction, error) {
 	data, err := ctx.GetStub().GetState(capitalAccountId)
-
 	if err != nil {
 		return nil, err
 	}
-
 	if data == nil {
 		return nil, nil
 	}
-
 	var portfolioAction types.PortfolioAction
 	err = json.Unmarshal(data, &portfolioAction)
 	if err != nil {
 		return nil, err
 	}
-
 	return &portfolioAction, nil
 }
 
@@ -123,16 +105,13 @@ func executePortfolioQuery(ctx contractapi.TransactionContextInterface, queryStr
 	if err != nil {
 		return nil, err
 	}
-
 	defer resultsIterator.Close()
-
 	var portfolios []*types.Portfolio
 	for resultsIterator.HasNext() {
 		queryResult, err := resultsIterator.Next()
 		if err != nil {
 			return nil, err
 		}
-
 		var portfolio types.Portfolio
 		err = json.Unmarshal(queryResult.Value, &portfolio)
 		if err != nil {
@@ -140,32 +119,5 @@ func executePortfolioQuery(ctx contractapi.TransactionContextInterface, queryStr
 		}
 		portfolios = append(portfolios, &portfolio)
 	}
-
 	return portfolios, nil
-}
-
-func executePortfolioActionsQuery(ctx contractapi.TransactionContextInterface, queryString string) ([]*types.PortfolioAction, error) {
-	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resultsIterator.Close()
-
-	var portfolioActions []*types.PortfolioAction
-	for resultsIterator.HasNext() {
-		queryResult, err := resultsIterator.Next()
-		if err != nil {
-			return nil, err
-		}
-
-		var portfolioAction types.PortfolioAction
-		err = json.Unmarshal(queryResult.Value, &portfolioAction)
-		if err != nil {
-			return nil, err
-		}
-		portfolioActions = append(portfolioActions, &portfolioAction)
-	}
-
-	return portfolioActions, nil
 }

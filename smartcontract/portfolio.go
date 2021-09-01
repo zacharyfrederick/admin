@@ -41,7 +41,7 @@ func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContext
 	if type_ != "buy" && type_ != "sell" {
 		return fmt.Errorf("the specified action is invalid for a portfolio: '%s'", type_)
 	}
-	security := types.Security{
+	security := types.Asset{
 		Name:     name,
 		CUSIP:    cusip,
 		Amount:   amount,

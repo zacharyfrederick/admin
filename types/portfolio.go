@@ -13,13 +13,14 @@ type DateAssetMap map[string]AssetMap
 type DateValuedAssetMap map[string]ValuedAssetMap
 
 type Portfolio struct {
-	DocType    string             `json:"docType"`
-	ID         string             `json:"id"`
-	Fund       string             `json:"fund"`
-	Name       string             `json:"name"`
-	Securities []Asset            `json:"securities"`
-	Assets     DateAssetMap       `json:"assets"`
-	Valuations DateValuedAssetMap `json:"valuations"`
+	DocType        string             `json:"docType"`
+	ID             string             `json:"id"`
+	Fund           string             `json:"fund"`
+	Name           string             `json:"name"`
+	Securities     []Asset            `json:"securities"`
+	Assets         DateAssetMap       `json:"assets"`
+	Valuations     DateValuedAssetMap `json:"valuations"`
+	MostRecentDate string             `json:"mostRecentDate"`
 }
 
 type Asset struct {

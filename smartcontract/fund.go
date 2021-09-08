@@ -9,6 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/zacharyfrederick/admin/types"
+	"github.com/zacharyfrederick/admin/types/doctypes"
 )
 
 func (s *AdminContract) CreateFund(ctx contractapi.TransactionContextInterface, fundId string, name string, inceptionDate string) error {
@@ -22,15 +23,15 @@ func (s *AdminContract) CreateFund(ctx contractapi.TransactionContextInterface, 
 	//initialize all values for the current period to be 0
 	//the deposits are later aggregated and used to define the fund opening value when it is bootstrapped
 	closingValues := make(map[string]string)
-	closingValues["0"] = decimal.Zero.String()
+	closingValues["0"] = "0"
 	openingValues := make(map[string]string)
-	openingValues["0"] = decimal.Zero.String()
+	openingValues["0"] = "0"
 	fixedFees := make(map[string]string)
-	fixedFees["0"] = decimal.Zero.String()
+	fixedFees["0"] = "0"
 	deposits := make(map[string]string)
-	deposits["0"] = decimal.Zero.String()
+	deposits["0"] = "0"
 	fund := types.Fund{
-		DocType:            types.DOCTYPE_FUND,
+		DocType:            doctypes.DOCTYPE_FUND,
 		ID:                 fundId,
 		Name:               name,
 		CurrentPeriod:      0,
@@ -42,24 +43,17 @@ func (s *AdminContract) CreateFund(ctx contractapi.TransactionContextInterface, 
 		Deposits:           deposits,
 		PeriodUpdated:      false,
 	}
-	fundJson, err := json.Marshal(fund)
-	if err != nil {
-		return err
-	}
-	return ctx.GetStub().PutState(fundId, fundJson)
+	return fund.SaveState(ctx)
 }
 
 func (s *AdminContract) QueryFundById(ctx contractapi.TransactionContextInterface, fundId string) (*types.Fund, error) {
 	data, err := ctx.GetStub().GetState(fundId)
-
 	if err != nil {
 		return nil, err
 	}
-
 	if data == nil {
 		return nil, nil
 	}
-
 	var fund types.Fund
 	err = json.Unmarshal(data, &fund)
 	if err != nil {
@@ -77,26 +71,12 @@ func (s *AdminContract) BootstrapFund(ctx contractapi.TransactionContextInterfac
 	if fund == nil {
 		return errors.New("a fund with that id does not exists")
 	}
-
-	updatedAccountValues, err := s.BootstrapCapitalAccountsForFund(ctx, fundId)
+	bootstrappedFundValues, err := s.BootstrapCapitalAccountsForFund(ctx, fundId)
 	if err != nil {
 		return err
 	}
-
-	currentPeriod := fmt.Sprintf("%d", fund.CurrentPeriod)
-	fund.Deposits[currentPeriod] = updatedAccountValues.TotalDeposits
-	fund.OpeningValues[currentPeriod] = updatedAccountValues.OpeningFundValue
-	fund.CurrentPeriod += 1
-
-	fundJson, err := json.Marshal(fund)
-	if err != nil {
-		return err
-	}
-	err = ctx.GetStub().PutState(fund.ID, fundJson)
-	if err != nil {
-		return err
-	}
-	return nil
+	fund.BootstrapFundValues(bootstrappedFundValues.TotalDeposits, bootstrappedFundValues.OpeningFundValue)
+	return fund.SaveState(ctx)
 }
 
 func (s *AdminContract) BootstrapCapitalAccountsForFund(ctx contractapi.TransactionContextInterface, fundId string) (*BootstrappedFundValues, error) {
@@ -104,7 +84,7 @@ func (s *AdminContract) BootstrapCapitalAccountsForFund(ctx contractapi.Transact
 	if err != nil {
 		return &BootstrappedFundValues{}, err
 	}
-	//loop over aggregate deposits and track closing fund value
+	//loop over accounts, aggregate deposits and track closing fund value
 	openingFundValue := decimal.Zero
 	totalDeposits := decimal.Zero
 	for _, account := range accounts {
@@ -126,11 +106,7 @@ func (s *AdminContract) BootstrapCapitalAccountsForFund(ctx contractapi.Transact
 		if err != nil {
 			return &BootstrappedFundValues{}, err
 		}
-		accountJson, err := json.Marshal(account)
-		if err != nil {
-			return &BootstrappedFundValues{}, err
-		}
-		ctx.GetStub().PutState(account.ID, accountJson)
+		account.SaveState(ctx)
 	}
 	retValue := &BootstrappedFundValues{
 		OpeningFundValue: openingFundValue.String(),
@@ -151,51 +127,69 @@ func updateCapitalAccountOwnership(ctx contractapi.TransactionContextInterface, 
 }
 
 func (s *AdminContract) BootstrapCapitalAccount(ctx contractapi.TransactionContextInterface, account *types.CapitalAccount) error {
-	_, err := s.StepCapitalAccount(ctx, account)
+	if account.CurrentPeriod != 0 {
+		return errors.New("this capital account cannot be bootstrapped")
+	}
+	deposits, err := QueryDepositsByFundAccountPeriod(ctx, account.ID, account.CurrentPeriod)
 	if err != nil {
 		return err
 	}
+	withdrawals, err := QueryWithdrawalsByFundAccountPeriod(ctx, account.ID, account.CurrentPeriod)
+	if err != nil {
+		return err
+	}
+	total, err := aggregateActions(deposits, withdrawals)
+	if err != nil {
+		return err
+	}
+	currentPeriod := account.CurrentPeriodAsString()
+	closingValue, err := decimal.NewFromString(account.ClosingValue[currentPeriod])
+	if err != nil {
+		return err
+	}
+	openingValue := closingValue.Add(total)
+	if openingValue.Sign() == -1 {
+		return errors.New("the actions resulted in a negative capital account balance")
+	}
+	account.BootstrapAccountValues(openingValue.String())
 	return nil
 }
 
-func (s *AdminContract) StepCapitalAccount(ctx contractapi.TransactionContextInterface, account *types.CapitalAccount) (*types.CapitalAccount, error) {
-	deposits, err := QueryDepositsByFundAccountPeriod(ctx, account.ID, account.CurrentPeriod)
+func aggregateActions(deposits []*types.CapitalAccountAction, withdrawals []*types.CapitalAccountAction) (decimal.Decimal, error) {
+	totalDeposis, err := aggregateDeposits(deposits)
 	if err != nil {
-		return account, err
+		return decimal.Zero, err
 	}
-	withdrawals, err := QueryWithdrawalsByFundAccountPeriod(ctx, account.ID, account.CurrentPeriod)
+	totalWithdrawals, err := aggregateWithdrawals(withdrawals)
 	if err != nil {
-		return account, err
+		return decimal.Zero, err
 	}
+	total := totalDeposis.Add(totalWithdrawals)
+	return total, nil
+}
+
+func aggregateDeposits(deposits []*types.CapitalAccountAction) (decimal.Decimal, error) {
 	total := decimal.Zero
 	for _, deposit := range deposits {
 		amount, err := decimal.NewFromString(deposit.Amount)
 		if err != nil {
-			return account, err
+			return decimal.Zero, err
 		}
 		total = total.Add(amount)
 	}
-	for _, withdrawal := range withdrawals {
-		amount, err := decimal.NewFromString(withdrawal.Amount)
+	return total, nil
+}
+
+func aggregateWithdrawals(withdrawals []*types.CapitalAccountAction) (decimal.Decimal, error) {
+	total := decimal.Zero
+	for _, deposit := range withdrawals {
+		amount, err := decimal.NewFromString(deposit.Amount)
 		if err != nil {
-			return account, err
+			return decimal.Zero, err
 		}
 		total = total.Sub(amount)
 	}
-	currentPeriod := fmt.Sprintf("%d", account.CurrentPeriod)
-	closingValue, err := decimal.NewFromString(account.ClosingValue[currentPeriod])
-	if err != nil {
-		return account, err
-	}
-	openingValue := closingValue.Add(total)
-	if openingValue.Sign() == -1 {
-		return account, errors.New("the actions resulted in a negative capital account balance")
-	}
-	//update the deposits, opening value, and current period of the account
-	account.Deposits[currentPeriod] = openingValue.String()
-	account.OpeningValue[currentPeriod] = openingValue.String()
-	account.CurrentPeriod = account.CurrentPeriod + 1
-	return account, nil
+	return total, nil
 }
 
 //BootstrappedFundValues is a struct that tracks the total deposits and closing fund value

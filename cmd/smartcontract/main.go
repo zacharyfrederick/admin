@@ -10,7 +10,7 @@ import (
 func main() {
 	adminContractContract := new(smartcontract.AdminContract)
 	adminContractContract.Info.Version = "0.0.1"
-	adminContractContract.Info.Description = "My Smart Contract"
+	adminContractContract.Info.Description = "Admin Smart Contract"
 	adminContractContract.Info.License = new(metadata.LicenseMetadata)
 	adminContractContract.Info.License.Name = "Apache-2.0"
 	adminContractContract.Info.Contact = new(metadata.ContactMetadata)

@@ -70,6 +70,17 @@ type CreatePortfolioActionRequest struct {
 	Currency  string `json:"currency" binding:"required"`
 }
 
+type ValuePortfolioRequest struct {
+	Portfolio string `json:"portfolio" binding:"required"`
+	Name      string `json:"name" binding:"required"`
+	Date      string `json:"date" binding:"required"`
+	Price     string `json:"price" binding:"isdefault|required"`
+}
+
 func ValidateCreatePortfolioActionRequest(r *CreatePortfolioActionRequest) bool {
+	return true
+}
+
+func ValidateValuePortfolioRequest(r *ValuePortfolioRequest) bool {
 	return true
 }

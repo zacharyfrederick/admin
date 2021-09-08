@@ -117,3 +117,26 @@ func (w *EndpointWrapper) GetPortfolioActionByIdEndpoint(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, portfolioAction)
 }
+
+func (w *EndpointWrapper) PostValuePortfolioEndpoint(c *gin.Context) {
+	var valuePortfolioRequest types.ValuePortfolioRequest
+	err := c.BindJSON(&valuePortfolioRequest)
+	if err != nil {
+		fmt.Println(err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required parameters"})
+		return
+	}
+	validRequest := types.ValidateValuePortfolioRequest(&valuePortfolioRequest)
+	if !validRequest {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "improperly formatted request"})
+		return
+	}
+	result, err := w.Contract.SubmitTransaction("UpdatePortfolioValuation", valuePortfolioRequest.Portfolio, valuePortfolioRequest.Date, valuePortfolioRequest.Name, valuePortfolioRequest.Price)
+	if err != nil {
+		errorString := fmt.Sprintf("error submitting request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errorString})
+		fmt.Println(result)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}

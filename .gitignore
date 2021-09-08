@@ -3,3 +3,5 @@
 */wallet
 */keystore
 */keystore/*.id
+*.pyc
+*/__pycache__

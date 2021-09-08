@@ -7,6 +7,7 @@ import (
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"github.com/shopspring/decimal"
 	"github.com/zacharyfrederick/admin/types"
+	"github.com/zacharyfrederick/admin/types/doctypes"
 	"github.com/zacharyfrederick/admin/utils"
 )
 
@@ -54,7 +55,7 @@ func (s *AdminContract) CreateCapitalAccount(ctx contractapi.TransactionContextI
 	ownershipPercentageMap["0"] = decimal.Zero.String()
 
 	capitalAccount := types.CapitalAccount{
-		DocType:             types.DOCTYPE_CAPITALACCOUNT,
+		DocType:             doctypes.DOCTYPE_CAPITALACCOUNT,
 		ID:                  capitalAccountId,
 		Fund:                fundId,
 		Investor:            investorId,
@@ -99,7 +100,7 @@ func (s *AdminContract) CreateCapitalAccountAction(ctx contractapi.TransactionCo
 	}
 
 	capitalAccountAction := types.CapitalAccountAction{
-		DocType:        types.DOCTYPE_CAPITALACCOUNTACTION,
+		DocType:        doctypes.DOCTYPE_CAPITALACCOUNTACTION,
 		ID:             transactionId,
 		CapitalAccount: capitalAccountId,
 		Type:           type_,

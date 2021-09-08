@@ -8,6 +8,7 @@ import (
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"github.com/shopspring/decimal"
 	"github.com/zacharyfrederick/admin/types"
+	"github.com/zacharyfrederick/admin/types/doctypes"
 	"github.com/zacharyfrederick/admin/utils"
 )
 
@@ -27,7 +28,7 @@ func (s *AdminContract) CreatePortfolio(ctx contractapi.TransactionContextInterf
 		return fmt.Errorf("a fund with the specified id does not exist")
 	}
 	Portfolio := types.Portfolio{
-		DocType:        types.DOCTYPE_PORTFOLIO,
+		DocType:        doctypes.DOCTYPE_PORTFOLIO,
 		Name:           name,
 		ID:             portfolioId,
 		Fund:           fundId,
@@ -58,7 +59,7 @@ func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContext
 		Currency: currency,
 	}
 	portfolioAction := &types.PortfolioAction{
-		DocType:   types.DOCTYPE_PORTFOLIOACTION,
+		DocType:   doctypes.DOCTYPE_PORTFOLIOACTION,
 		Portfolio: portfolioId,
 		Type:      type_,
 		Date:      date,
@@ -86,6 +87,58 @@ func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContext
 	return ctx.GetStub().PutState(actionId, portfolioActionJson)
 }
 
+func (s *AdminContract) UpdatePortfolioValuation(ctx contractapi.TransactionContextInterface, portfolioId string, date string, name string, price string) error {
+	portfolio, err := s.QueryPortfolioById(ctx, portfolioId)
+	if err != nil {
+		return err
+	}
+	if portfolio == nil {
+		return errors.New("a portfolio with that ID does not exist")
+	}
+	currentAssets, ok := portfolio.Assets[date]
+	if !ok {
+		return errors.New("a portfolio snapshop with that date does not exist")
+	}
+	asset, ok := currentAssets[name]
+	if !ok {
+		return errors.New("the specified asset is not in the portfolio")
+	}
+	//initialize the valuations if it hasn't been created yet
+	if portfolio.Valuations == nil {
+		portfolio.Valuations = make(types.DateValuedAssetMap)
+	}
+	valuedAsset := createValuedAsset(asset, price)
+	valuationForDate, ok := portfolio.Valuations[date]
+	if !ok { // no valuations for date
+		portfolio.Valuations[date] = make(types.ValuedAssetMap)
+		portfolio.Valuations[date][name] = valuedAsset
+	} else {
+		currentValuation, ok := valuationForDate[name]
+		if ok {
+			currentValuation.Price = price
+			valuationForDate[name] = currentValuation
+		} else {
+			valuationForDate[name] = valuedAsset
+		}
+	}
+	portfolioJson, err := json.Marshal(portfolio)
+	if err != nil {
+		return err
+	}
+	return ctx.GetStub().PutState(portfolioId, portfolioJson)
+}
+
+func createValuedAsset(asset types.Asset, price string) types.ValuedAsset {
+	valuedAsset := types.ValuedAsset{
+		Name:     asset.Name,
+		CUSIP:    asset.CUSIP,
+		Amount:   asset.Amount,
+		Currency: asset.Currency,
+		Price:    price,
+	}
+	return valuedAsset
+}
+
 func executePortfolioAction(ctx contractapi.TransactionContextInterface, portfolio *types.Portfolio, action *types.PortfolioAction) error {
 	switch action.Type {
 	case "buy":
@@ -101,6 +154,8 @@ func buySecurityForPortfolio(ctx contractapi.TransactionContextInterface, portfo
 	transactionDate := action.Date
 	assetName := action.Security.Name
 	if portfolio.MostRecentDate == "" {
+		portfolio.Assets = make(types.DateAssetMap)
+		portfolio.Assets[transactionDate] = make(types.AssetMap)
 		portfolio.Assets[transactionDate][assetName] = action.Security
 		portfolio.MostRecentDate = action.Date
 		return nil
@@ -125,11 +180,20 @@ func getMostRecentAssetsForPortfolio(portfolio *types.Portfolio, date string) (t
 	} else {
 		currentAssets, ok := portfolio.Assets[portfolio.MostRecentDate]
 		if ok {
-			return currentAssets, nil
+			newAssets := copyAssetMap(currentAssets)
+			return newAssets, nil
 		} else {
 			return nil, errors.New("no portfolio found for the most recent date")
 		}
 	}
+}
+
+func copyAssetMap(assets types.AssetMap) types.AssetMap {
+	newMap := make(types.AssetMap)
+	for k, v := range assets {
+		newMap[k] = v
+	}
+	return newMap
 }
 
 func addAsset(assets types.AssetMap, assetToAdd types.Asset) error {

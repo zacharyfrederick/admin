@@ -1,4 +1,4 @@
-package types
+package doctypes
 
 const DOCTYPE_FUND string = "fund"
 const DOCTYPE_PORTFOLIO string = "portfolio"

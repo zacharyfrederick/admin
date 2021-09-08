@@ -1,10 +1,17 @@
 package types
 
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+)
+
 type CapitalAccount struct {
 	DocType             string            `json:"docType"`
 	ID                  string            `json:"id"`
 	Fund                string            `json:"fund"`
-	Investor            string            `json:"name"`
+	Investor            string            `json:"investor"`
 	Number              int               `json:"number"`
 	CurrentPeriod       int               `json:"currentPeriod"`
 	ClosingValue        map[string]string `json:"periodClosingValue"`
@@ -14,6 +21,25 @@ type CapitalAccount struct {
 	OwnershipPercentage map[string]string `json:"ownershipPercentage"`
 	HighWaterMark       HighWaterMark     `json:"highWaterMark"`
 	PeriodUpdated       bool              `json:"periodUpdated"`
+}
+
+func (c *CapitalAccount) SaveState(ctx contractapi.TransactionContextInterface) error {
+	CapitalAccountJson, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	return ctx.GetStub().PutState(c.ID, CapitalAccountJson)
+}
+
+func (c *CapitalAccount) CurrentPeriodAsString() string {
+	return fmt.Sprintf("%d", c.CurrentPeriod)
+}
+
+func (c *CapitalAccount) BootstrapAccountValues(openingValue string) {
+	currentPeriod := c.CurrentPeriodAsString()
+	c.Deposits[currentPeriod] = openingValue
+	c.OpeningValue[currentPeriod] = openingValue
+	c.CurrentPeriod += 1
 }
 
 type CapitalAccountAction struct {

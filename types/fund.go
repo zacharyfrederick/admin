@@ -1,5 +1,12 @@
 package types
 
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+)
+
 type Fund struct {
 	DocType            string            `json:"docType"`
 	ID                 string            `json:"id"`
@@ -12,6 +19,29 @@ type Fund struct {
 	Deposits           map[string]string `json:"aggregateDeposits"`
 	NextInvestorNumber int               `json:"nextInvestorNumber"`
 	PeriodUpdated      bool              `json:"periodUpdated"`
+}
+
+func (f *Fund) CurrentPeriodAsString() string {
+	return fmt.Sprintf("%d", f.CurrentPeriod)
+}
+
+func (f *Fund) PreviousPeriodAsString() string {
+	return fmt.Sprintf("%d", f.CurrentPeriod-1)
+}
+
+func (f *Fund) SaveState(ctx contractapi.TransactionContextInterface) error {
+	fundJson, err := json.Marshal(f)
+	if err != nil {
+		return err
+	}
+	return ctx.GetStub().PutState(f.ID, fundJson)
+}
+
+func (f *Fund) BootstrapFundValues(totalDeposits string, openingFundValue string) {
+	currentPeriod := f.CurrentPeriodAsString()
+	f.Deposits[currentPeriod] = totalDeposits
+	f.OpeningValues[currentPeriod] = openingFundValue
+	f.CurrentPeriod += 1
 }
 
 type CreateFundRequest struct {

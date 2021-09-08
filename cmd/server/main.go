@@ -43,5 +43,7 @@ func main() {
 	router.POST("/portfolioactions", endpointWrapper.PostPortfolioActionEndpoint)
 	router.GET("/portfolioactions/:id", endpointWrapper.GetPortfolioActionByIdEndpoint)
 
+	router.POST("/valueportfolio", endpointWrapper.PostValuePortfolioEndpoint)
+
 	router.Run()
 }

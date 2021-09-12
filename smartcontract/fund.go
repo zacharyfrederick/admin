@@ -1,7 +1,6 @@
 package smartcontract
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -9,58 +8,30 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/zacharyfrederick/admin/types"
-	"github.com/zacharyfrederick/admin/types/doctypes"
+	smartcontracterrors "github.com/zacharyfrederick/admin/types/errors"
 )
 
 func (s *AdminContract) CreateFund(ctx contractapi.TransactionContextInterface, fundId string, name string, inceptionDate string) error {
 	obj, err := ctx.GetStub().GetState(fundId)
 	if err != nil {
-		return fmt.Errorf(("error retrieving the world state"))
+		return smartcontracterrors.ReadingWorldStateError
 	}
 	if obj != nil {
-		return fmt.Errorf("an object already exists with that id")
+		return smartcontracterrors.IdAlreadyInUseError
 	}
-	//initialize all values for the current period to be 0
-	//the deposits are later aggregated and used to define the fund opening value when it is bootstrapped
-	closingValues := make(map[string]string)
-	closingValues["0"] = "0"
-	openingValues := make(map[string]string)
-	openingValues["0"] = "0"
-	fixedFees := make(map[string]string)
-	fixedFees["0"] = "0"
-	deposits := make(map[string]string)
-	deposits["0"] = "0"
-	fund := types.Fund{
-		DocType:            doctypes.DOCTYPE_FUND,
-		ID:                 fundId,
-		Name:               name,
-		CurrentPeriod:      0,
-		InceptionDate:      inceptionDate,
-		NextInvestorNumber: 0,
-		ClosingValues:      closingValues,
-		OpeningValues:      openingValues,
-		FixedFees:          fixedFees,
-		Deposits:           deposits,
-		PeriodUpdated:      false,
-	}
+	fund := types.CreateDefaultFund(fundId, name, inceptionDate)
 	return fund.SaveState(ctx)
 }
 
 func (s *AdminContract) QueryFundById(ctx contractapi.TransactionContextInterface, fundId string) (*types.Fund, error) {
-	data, err := ctx.GetStub().GetState(fundId)
+	fundJSON, err := ctx.GetStub().GetState(fundId)
 	if err != nil {
 		return nil, err
 	}
-	if data == nil {
+	if fundJSON == nil {
 		return nil, nil
 	}
-	var fund types.Fund
-	err = json.Unmarshal(data, &fund)
-	if err != nil {
-		return nil, err
-	}
-
-	return &fund, nil
+	return types.CreateFundFromJSON(fundJSON)
 }
 
 func (s *AdminContract) BootstrapFund(ctx contractapi.TransactionContextInterface, fundId string) error {
@@ -69,7 +40,7 @@ func (s *AdminContract) BootstrapFund(ctx contractapi.TransactionContextInterfac
 		return nil
 	}
 	if fund == nil {
-		return errors.New("a fund with that id does not exists")
+		return smartcontracterrors.FundNotFoundError
 	}
 	bootstrappedFundValues, err := s.BootstrapCapitalAccountsForFund(ctx, fundId)
 	if err != nil {

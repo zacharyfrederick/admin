@@ -1,47 +1,31 @@
 package smartcontract
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"github.com/zacharyfrederick/admin/types"
-	"github.com/zacharyfrederick/admin/types/doctypes"
+	smartcontracterrors "github.com/zacharyfrederick/admin/types/errors"
 	"github.com/zacharyfrederick/admin/utils"
 )
 
 func (s *AdminContract) CreateInvestor(ctx contractapi.TransactionContextInterface, investorId string, name string) error {
 	objExists, err := utils.AssetExists(ctx, investorId)
 	if err != nil {
-		return err
+		return smartcontracterrors.ReadingWorldStateError
 	}
 	if objExists {
-		return fmt.Errorf("an object already exists with that ID")
+		return smartcontracterrors.IdAlreadyInUseError
 	}
-	investor := types.Investor{
-		DocType: doctypes.DOCTYPE_INVESTOR,
-		Name:    name,
-		ID:      investorId,
-	}
-	investorJson, err := json.Marshal(investor)
-	if err != nil {
-		return err
-	}
-	return ctx.GetStub().PutState(investorId, investorJson)
+	investor := types.CreateDefaultInvestor(investorId, name)
+	return investor.SaveState(ctx)
 }
 
 func (s *AdminContract) QueryInvestorById(ctx contractapi.TransactionContextInterface, investorId string) (*types.Investor, error) {
-	data, err := ctx.GetStub().GetState(investorId)
+	investorJson, err := ctx.GetStub().GetState(investorId)
 	if err != nil {
-		return nil, err
+		return nil, smartcontracterrors.ReadingWorldStateError
 	}
-	if data == nil {
+	if investorJson == nil {
 		return nil, nil
 	}
-	var investor types.Investor
-	err = json.Unmarshal(data, &investor)
-	if err != nil {
-		return nil, err
-	}
-	return &investor, nil
+	return types.CreateInvestorFromJSON(investorJson)
 }

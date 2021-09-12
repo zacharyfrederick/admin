@@ -8,83 +8,51 @@ import (
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"github.com/shopspring/decimal"
 	"github.com/zacharyfrederick/admin/types"
-	"github.com/zacharyfrederick/admin/types/doctypes"
+	smartcontracterrors "github.com/zacharyfrederick/admin/types/errors"
 	"github.com/zacharyfrederick/admin/utils"
 )
 
 func (s *AdminContract) CreatePortfolio(ctx contractapi.TransactionContextInterface, portfolioId string, fundId string, name string) error {
 	idInUse, err := utils.AssetExists(ctx, portfolioId)
 	if err != nil {
-		return err
+		return smartcontracterrors.ReadingWorldStateError
 	}
 	if idInUse {
-		return fmt.Errorf("an object with that id already exists")
+		return smartcontracterrors.IdAlreadyInUseError
 	}
 	fund, err := s.QueryFundById(ctx, fundId)
 	if err != nil {
-		return err
+		return smartcontracterrors.ReadingWorldStateError
 	}
 	if fund == nil {
-		return fmt.Errorf("a fund with the specified id does not exist")
+		return smartcontracterrors.FundNotFoundError
 	}
-	Portfolio := types.Portfolio{
-		DocType:        doctypes.DOCTYPE_PORTFOLIO,
-		Name:           name,
-		ID:             portfolioId,
-		Fund:           fundId,
-		MostRecentDate: "",
-	}
-	portfolioJson, err := json.Marshal(Portfolio)
-	if err != nil {
-		return err
-	}
-	return ctx.GetStub().PutState(portfolioId, portfolioJson)
+	portfolio := types.CreateDefaultPortfolio(portfolioId, fundId, name)
+	return portfolio.SaveState(ctx)
 }
 
 func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContextInterface, actionId string, portfolioId string, type_ string, date string, period int, name string, cusip string, amount string, currency string) error {
 	if type_ != "buy" && type_ != "sell" {
-		return fmt.Errorf("the specified action is invalid for a portfolio: '%s'", type_)
+		return smartcontracterrors.InvalidPortfolioActionTypeError
 	}
 	portfolio, err := s.QueryPortfolioById(ctx, portfolioId)
 	if err != nil {
-		return err
+		return smartcontracterrors.ReadingWorldStateError
 	}
 	if portfolio == nil {
-		return errors.New("a portfolio with that ID does not exist")
+		return smartcontracterrors.PortfolioNotFoundError
 	}
-	security := types.Asset{
-		Name:     name,
-		CUSIP:    cusip,
-		Amount:   amount,
-		Currency: currency,
-	}
-	portfolioAction := &types.PortfolioAction{
-		DocType:   doctypes.DOCTYPE_PORTFOLIOACTION,
-		Portfolio: portfolioId,
-		Type:      type_,
-		Date:      date,
-		ID:        actionId,
-		Security:  security,
-		Period:    period,
-		Status:    types.TX_STATUS_SUBMITTED,
-	}
-	portfolioActionJson, err := json.Marshal(portfolioAction)
+	asset := types.CreateAsset(name, cusip, amount, currency)
+	portfolioAction := types.CreateDefaultPortfolioAction(portfolioId, type_, date, actionId, asset, period)
+	err = executePortfolioAction(portfolio, &portfolioAction)
 	if err != nil {
 		return err
 	}
-	err = executePortfolioAction(ctx, portfolio, portfolioAction)
+	err = portfolio.SaveState(ctx)
 	if err != nil {
 		return err
 	}
-	portfolioJson, err := json.Marshal(portfolio)
-	if err != nil {
-		return err
-	}
-	err = ctx.GetStub().PutState(portfolioId, portfolioJson)
-	if err != nil {
-		return err
-	}
-	return ctx.GetStub().PutState(actionId, portfolioActionJson)
+	return portfolioAction.SaveState(ctx)
 }
 
 func (s *AdminContract) UpdatePortfolioValuation(ctx contractapi.TransactionContextInterface, portfolioId string, date string, name string, price string) error {
@@ -139,24 +107,24 @@ func createValuedAsset(asset types.Asset, price string) types.ValuedAsset {
 	return valuedAsset
 }
 
-func executePortfolioAction(ctx contractapi.TransactionContextInterface, portfolio *types.Portfolio, action *types.PortfolioAction) error {
+func executePortfolioAction(portfolio *types.Portfolio, action *types.PortfolioAction) error {
 	switch action.Type {
 	case "buy":
-		return buySecurityForPortfolio(ctx, portfolio, action)
+		return buySecurityForPortfolio(portfolio, action)
 	case "sell":
-		return sellSecurityForPortfolio(ctx, portfolio, action)
+		return sellSecurityForPortfolio(portfolio, action)
 	default:
 		return errors.New("unrecognized action type")
 	}
 }
 
-func buySecurityForPortfolio(ctx contractapi.TransactionContextInterface, portfolio *types.Portfolio, action *types.PortfolioAction) error {
+func buySecurityForPortfolio(portfolio *types.Portfolio, action *types.PortfolioAction) error {
 	transactionDate := action.Date
-	assetName := action.Security.Name
+	assetName := action.Asset.Name
 	if portfolio.MostRecentDate == "" {
 		portfolio.Assets = make(types.DateAssetMap)
 		portfolio.Assets[transactionDate] = make(types.AssetMap)
-		portfolio.Assets[transactionDate][assetName] = action.Security
+		portfolio.Assets[transactionDate][assetName] = action.Asset
 		portfolio.MostRecentDate = action.Date
 		return nil
 	}
@@ -164,7 +132,7 @@ func buySecurityForPortfolio(ctx contractapi.TransactionContextInterface, portfo
 	if err != nil {
 		return err
 	}
-	err = addAsset(currentAssets, action.Security)
+	err = addAsset(currentAssets, action.Asset)
 	if err != nil {
 		return err
 	}
@@ -239,7 +207,7 @@ func removeAsset(assets types.AssetMap, assetToAdd types.Asset) error {
 	return nil
 }
 
-func sellSecurityForPortfolio(ctx contractapi.TransactionContextInterface, portfolio *types.Portfolio, action *types.PortfolioAction) error {
+func sellSecurityForPortfolio(portfolio *types.Portfolio, action *types.PortfolioAction) error {
 	transactionDate := action.Date
 	if portfolio.MostRecentDate == "" {
 		return errors.New("cannot sell a security from an empty portfolio")
@@ -248,7 +216,7 @@ func sellSecurityForPortfolio(ctx contractapi.TransactionContextInterface, portf
 	if err != nil {
 		return err
 	}
-	err = removeAsset(currentAssets, action.Security)
+	err = removeAsset(currentAssets, action.Asset)
 	if err != nil {
 		return err
 	}

@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/shopspring/decimal"
+	"github.com/zacharyfrederick/admin/types/doctypes"
 )
 
 type CapitalAccount struct {
@@ -23,12 +25,20 @@ type CapitalAccount struct {
 	PeriodUpdated       bool              `json:"periodUpdated"`
 }
 
+func (c *CapitalAccount) ToJSON() ([]byte, error) {
+	capitalAccountJSON, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	return capitalAccountJSON, nil
+}
+
 func (c *CapitalAccount) SaveState(ctx contractapi.TransactionContextInterface) error {
-	CapitalAccountJson, err := json.Marshal(c)
+	capitalAccountJSON, err := c.ToJSON()
 	if err != nil {
 		return err
 	}
-	return ctx.GetStub().PutState(c.ID, CapitalAccountJson)
+	return ctx.GetStub().PutState(c.ID, capitalAccountJSON)
 }
 
 func (c *CapitalAccount) CurrentPeriodAsString() string {
@@ -42,6 +52,43 @@ func (c *CapitalAccount) BootstrapAccountValues(openingValue string) {
 	c.CurrentPeriod += 1
 }
 
+func CreateDefaultCapitalAccount(nextInvestorNumber int, currentPeriod int, accountId string, fundId string, investorId string) CapitalAccount {
+	closingValueMap := make(map[string]string)
+	closingValueMap["0"] = decimal.Zero.String()
+	openingValueMap := make(map[string]string)
+	openingValueMap["0"] = decimal.Zero.String()
+	fixedFeesMap := make(map[string]string)
+	fixedFeesMap["0"] = decimal.Zero.String()
+	depositMap := make(map[string]string)
+	depositMap["0"] = decimal.Zero.String()
+	ownershipPercentageMap := make(map[string]string)
+	ownershipPercentageMap["0"] = decimal.Zero.String()
+	capitalAccount := CapitalAccount{
+		DocType:             doctypes.DOCTYPE_CAPITALACCOUNT,
+		ID:                  accountId,
+		Fund:                fundId,
+		Investor:            investorId,
+		Number:              nextInvestorNumber,
+		CurrentPeriod:       currentPeriod,
+		ClosingValue:        closingValueMap,
+		OpeningValue:        openingValueMap,
+		FixedFees:           fixedFeesMap,
+		Deposits:            depositMap,
+		OwnershipPercentage: ownershipPercentageMap,
+		HighWaterMark:       HighWaterMark{Amount: "0.0", Date: "None"},
+		PeriodUpdated:       false,
+	}
+	return capitalAccount
+}
+
+func (c *CapitalAccountAction) SaveState(ctx contractapi.TransactionContextInterface) error {
+	capitalAccountActionJSON, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	return ctx.GetStub().PutState(c.ID, capitalAccountActionJSON)
+}
+
 type CapitalAccountAction struct {
 	DocType        string `json:"docType"`
 	ID             string `json:"id"`
@@ -53,6 +100,22 @@ type CapitalAccountAction struct {
 	Description    string `json:"description"`
 	Date           string `json:"Date"`
 	Period         int    `json:"period"`
+}
+
+func CreateDefaultCapitalAccountAction(transactionId string, capitalAccountId string, type_ string, amount string, full bool, date string, period int) CapitalAccountAction {
+	capitalAccountAction := CapitalAccountAction{
+		DocType:        doctypes.DOCTYPE_CAPITALACCOUNTACTION,
+		ID:             transactionId,
+		CapitalAccount: capitalAccountId,
+		Type:           type_,
+		Amount:         amount,
+		Full:           full,
+		Status:         TX_STATUS_SUBMITTED,
+		Description:    "",
+		Date:           date,
+		Period:         period,
+	}
+	return capitalAccountAction
 }
 
 type HighWaterMark struct {

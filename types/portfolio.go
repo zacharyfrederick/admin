@@ -1,5 +1,12 @@
 package types
 
+import (
+	"encoding/json"
+
+	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/zacharyfrederick/admin/types/doctypes"
+)
+
 //Map of assets using their name as a unique key
 type AssetMap map[string]Asset
 
@@ -42,7 +49,7 @@ type PortfolioAction struct {
 	DocType     string `json:"docType"`
 	ID          string `json:"id"`
 	Portfolio   string `json:"portfolio"`
-	Security    Asset  `json:"security"`
+	Asset       Asset  `json:"asset"`
 	Type        string `json:"type"`
 	Date        string `json:"date"`
 	Period      int    `json:"period"`
@@ -83,4 +90,62 @@ func ValidateCreatePortfolioActionRequest(r *CreatePortfolioActionRequest) bool 
 
 func ValidateValuePortfolioRequest(r *ValuePortfolioRequest) bool {
 	return true
+}
+
+func CreateDefaultPortfolio(portfolioId string, fundId string, name string) Portfolio {
+	portfolio := Portfolio{
+		DocType:        doctypes.DOCTYPE_PORTFOLIO,
+		Name:           name,
+		ID:             portfolioId,
+		Fund:           fundId,
+		MostRecentDate: "",
+	}
+	return portfolio
+}
+
+func (p *Portfolio) ToJSON() ([]byte, error) {
+	portfolioJSON, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	return portfolioJSON, nil
+}
+func (p *Portfolio) SaveState(ctx contractapi.TransactionContextInterface) error {
+	portfolioJSON, err := p.ToJSON()
+	if err != nil {
+		return err
+	}
+	return ctx.GetStub().PutState(p.ID, portfolioJSON)
+}
+
+func (p *PortfolioAction) SaveState(ctx contractapi.TransactionContextInterface) error {
+	portfolioActionJSON, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	return ctx.GetStub().PutState(p.ID, portfolioActionJSON)
+}
+
+func CreateAsset(name string, cusip string, amount string, currency string) Asset {
+	security := Asset{
+		Name:     name,
+		CUSIP:    cusip,
+		Amount:   amount,
+		Currency: currency,
+	}
+	return security
+}
+
+func CreateDefaultPortfolioAction(portfolioId string, type_ string, date string, id string, asset Asset, period int) PortfolioAction {
+	portfolioAction := PortfolioAction{
+		DocType:   doctypes.DOCTYPE_PORTFOLIOACTION,
+		Portfolio: portfolioId,
+		Type:      type_,
+		Date:      date,
+		ID:        id,
+		Asset:     asset,
+		Period:    period,
+		Status:    TX_STATUS_SUBMITTED,
+	}
+	return portfolioAction
 }

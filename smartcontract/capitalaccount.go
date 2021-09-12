@@ -5,120 +5,55 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
-	"github.com/shopspring/decimal"
 	"github.com/zacharyfrederick/admin/types"
-	"github.com/zacharyfrederick/admin/types/doctypes"
+	smartcontracterrors "github.com/zacharyfrederick/admin/types/errors"
 	"github.com/zacharyfrederick/admin/utils"
 )
 
 func (s *AdminContract) CreateCapitalAccount(ctx contractapi.TransactionContextInterface, capitalAccountId string, fundId string, investorId string) error {
 	idInUse, err := utils.AssetExists(ctx, capitalAccountId)
-
 	if err != nil {
-		return err
+		return smartcontracterrors.ReadingWorldStateError
 	}
-
 	if idInUse {
-		return fmt.Errorf("an object with the specified Id already exists")
+		return smartcontracterrors.IdAlreadyInUseError
 	}
-
 	fund, err := s.QueryFundById(ctx, fundId)
 	if err != nil {
 		return err
 	}
-
 	if fund == nil {
-		return fmt.Errorf("a fund with id '%s' does not exist", fundId)
+		return smartcontracterrors.FundNotFoundError
 	}
-
 	investor, err := s.QueryInvestorById(ctx, investorId)
 	if err != nil {
-		return err
+		return smartcontracterrors.ReadingWorldStateError
 	}
 	if investor == nil {
-		return fmt.Errorf("an investor with id '%s' does not exist", investorId)
+		return smartcontracterrors.InvestorNotFoundError
 	}
-
-	closingValueMap := make(map[string]string)
-	closingValueMap["0"] = decimal.Zero.String()
-
-	openingValueMap := make(map[string]string)
-	openingValueMap["0"] = decimal.Zero.String()
-
-	fixedFeesMap := make(map[string]string)
-	fixedFeesMap["0"] = decimal.Zero.String()
-
-	depositMap := make(map[string]string)
-	depositMap["0"] = decimal.Zero.String()
-
-	ownershipPercentageMap := make(map[string]string)
-	ownershipPercentageMap["0"] = decimal.Zero.String()
-
-	capitalAccount := types.CapitalAccount{
-		DocType:             doctypes.DOCTYPE_CAPITALACCOUNT,
-		ID:                  capitalAccountId,
-		Fund:                fundId,
-		Investor:            investorId,
-		Number:              fund.NextInvestorNumber,
-		CurrentPeriod:       fund.CurrentPeriod,
-		ClosingValue:        closingValueMap,
-		OpeningValue:        openingValueMap,
-		FixedFees:           fixedFeesMap,
-		Deposits:            depositMap,
-		OwnershipPercentage: ownershipPercentageMap,
-		HighWaterMark:       types.HighWaterMark{Amount: "0.0", Date: "None"},
-		PeriodUpdated:       false,
-	}
-
-	capitalAccountJson, err := json.Marshal(capitalAccount)
-	if err != nil {
-		return err
-	}
-
 	fund.NextInvestorNumber += 1
-	fundJson, err := json.Marshal(fund)
+	err = fund.SaveState(ctx)
 	if err != nil {
-		return err
+		return smartcontracterrors.WritingWorldStateError
 	}
-
-	ctx.GetStub().PutState(fund.ID, fundJson)
-	return ctx.GetStub().PutState(capitalAccountId, capitalAccountJson)
+	capitalAccount := types.CreateDefaultCapitalAccount(fund.NextInvestorNumber, fund.CurrentPeriod, capitalAccountId, fundId, investorId)
+	return capitalAccount.SaveState(ctx)
 }
 
 func (s *AdminContract) CreateCapitalAccountAction(ctx contractapi.TransactionContextInterface, transactionId string, capitalAccountId string, type_ string, amount string, full bool, date string, period int) error {
 	if type_ != "deposit" && type_ != "withdrawal" {
-		return fmt.Errorf("the specified type of '%s' is invalid for a CapitalAccountAction", type_)
+		return smartcontracterrors.InvalidCapitalAccountActionTypeError
 	}
-
 	capitalAccount, err := s.QueryCapitalAccountById(ctx, capitalAccountId)
 	if err != nil {
 		return err
 	}
-
 	if capitalAccount == nil {
-		return fmt.Errorf("a capital account with that id does not exist")
+		return smartcontracterrors.CapitalAccountNotFoundError
 	}
-
-	capitalAccountAction := types.CapitalAccountAction{
-		DocType:        doctypes.DOCTYPE_CAPITALACCOUNTACTION,
-		ID:             transactionId,
-		CapitalAccount: capitalAccountId,
-		Type:           type_,
-		Amount:         amount,
-		Full:           full,
-		Status:         types.TX_STATUS_SUBMITTED,
-		Description:    "",
-		Date:           date,
-		Period:         period,
-	}
-
-	capitalAccountActionJson, err := json.Marshal(capitalAccountAction)
-
-	if err != nil {
-		return err
-	}
-
-	return ctx.GetStub().PutState(transactionId, capitalAccountActionJson)
+	capitalAccountAction := types.CreateDefaultCapitalAccountAction(transactionId, capitalAccountId, type_, amount, full, date, period)
+	return capitalAccountAction.SaveState(ctx)
 }
 
 func (s *AdminContract) QueryCapitalAccountById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.CapitalAccount, error) {
@@ -129,7 +64,6 @@ func (s *AdminContract) QueryCapitalAccountById(ctx contractapi.TransactionConte
 	if data == nil {
 		return nil, nil
 	}
-
 	var capitalAccount types.CapitalAccount
 	err = json.Unmarshal(data, &capitalAccount)
 	if err != nil {

@@ -13,13 +13,26 @@ type Investor struct {
 	Name    string `json:"name"`
 }
 
-func (i *Investor) ToJSON() ([]byte, error) {
-	investorJSON, err := json.Marshal(i)
+func (f *Investor) GetID() string {
+	return f.ID
+}
+
+func (f *Investor) ToJSON() ([]byte, error) {
+	investorJSON, err := json.Marshal(f)
 	if err != nil {
 		return nil, err
 	}
 	return investorJSON, nil
 }
+
+func (f *Investor) FromJSON(data []byte) error {
+	err := json.Unmarshal(data, f)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (t *Investor) SaveState(ctx contractapi.TransactionContextInterface) error {
 	investorJSON, err := t.ToJSON()
 	if err != nil {

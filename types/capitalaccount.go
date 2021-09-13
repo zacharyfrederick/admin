@@ -25,12 +25,24 @@ type CapitalAccount struct {
 	PeriodUpdated       bool              `json:"periodUpdated"`
 }
 
-func (c *CapitalAccount) ToJSON() ([]byte, error) {
-	capitalAccountJSON, err := json.Marshal(c)
+func (f *CapitalAccount) GetID() string {
+	return f.ID
+}
+
+func (f *CapitalAccount) ToJSON() ([]byte, error) {
+	capitalAccountJSON, err := json.Marshal(f)
 	if err != nil {
 		return nil, err
 	}
 	return capitalAccountJSON, nil
+}
+
+func (f *CapitalAccount) FromJSON(data []byte) error {
+	err := json.Unmarshal(data, f)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *CapitalAccount) SaveState(ctx contractapi.TransactionContextInterface) error {

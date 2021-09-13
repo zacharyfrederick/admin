@@ -16,7 +16,7 @@ func (s *AdminContract) CreateInvestor(ctx contractapi.TransactionContextInterfa
 		return smartcontracterrors.IdAlreadyInUseError
 	}
 	investor := types.CreateDefaultInvestor(investorId, name)
-	return investor.SaveState(ctx)
+	return SaveState(ctx, &investor)
 }
 
 func (s *AdminContract) QueryInvestorById(ctx contractapi.TransactionContextInterface, investorId string) (*types.Investor, error) {
@@ -27,5 +27,10 @@ func (s *AdminContract) QueryInvestorById(ctx contractapi.TransactionContextInte
 	if investorJson == nil {
 		return nil, nil
 	}
-	return types.CreateInvestorFromJSON(investorJson)
+	var investor types.Investor
+	err = LoadState(investorJson, &investor)
+	if err != nil {
+		return nil, err
+	}
+	return &investor, nil
 }

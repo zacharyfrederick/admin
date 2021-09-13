@@ -1,7 +1,9 @@
 package smartcontract_test
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/zacharyfrederick/admin/smartcontract"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/hyperledger/fabric-protos-go/ledger/queryresult"
 	"github.com/stretchr/testify/assert"
 	"github.com/zacharyfrederick/admin/smartcontract/mocks"
 	smartcontracterrors "github.com/zacharyfrederick/admin/types/errors"
@@ -213,4 +216,303 @@ func TestCreatePortfolioActionInvalidAction(t *testing.T) {
 	chaincodeStub.GetStateReturnsOnCall(0, portfolioJSON, nil)
 	err = admin.CreatePortfolioAction(transactionContext, "testActionId", "testPortfolioId", "fake action", "12-27-1996", 0, "AMZN", "testCusip", "100", "USD")
 	assert.Equal(t, err, smartcontracterrors.InvalidPortfolioActionTypeError)
+}
+
+func TestBootstrapCapitalAccount(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+
+	firstDeposit := types.CreateDefaultCapitalAccountAction("testDeposit1", "testAccountId", "buy", "10000", false, "12-27-1996", 0)
+	firstDepositJSON, err := json.Marshal(firstDeposit)
+	assert.Nil(t, err)
+
+	secondDeposit := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId", "buy", "3000", false, "12-27-1996", 0)
+	secondDepositJSON, err := json.Marshal(secondDeposit)
+	assert.Nil(t, err)
+
+	depositIterator := mocks.StateQueryIterator{}
+	depositIterator.HasNextReturnsOnCall(0, true)
+	depositIterator.HasNextReturnsOnCall(1, true)
+	depositIterator.HasNextReturnsOnCall(2, false)
+	depositIterator.NextReturnsOnCall(0, &queryresult.KV{
+		Value: firstDepositJSON,
+	}, nil)
+	depositIterator.NextReturnsOnCall(1, &queryresult.KV{
+		Value: secondDepositJSON,
+	}, nil)
+
+	withdrawalIterator := mocks.StateQueryIterator{}
+	withdrawalIterator.HasNextReturnsOnCall(0, false)
+	withdrawalIterator.CloseReturns(nil)
+
+	chaincodeStub.GetQueryResultReturnsOnCall(0, &depositIterator, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(1, &withdrawalIterator, nil)
+
+	capitalAccount := types.CreateDefaultCapitalAccount(0, 0, "testAccountId", "testFundId", "testInvestorId")
+
+	err = admin.BootstrapCapitalAccount(transactionContext, &capitalAccount)
+
+	currentPeriod := capitalAccount.CurrentPeriod
+	deposits := capitalAccount.Deposits["0"]
+	openingValue := capitalAccount.OpeningValue["0"]
+
+	assert.Equal(t, currentPeriod, 1)
+	assert.Equal(t, deposits, "13000")
+	assert.Equal(t, openingValue, "13000")
+}
+
+func TestBootstrapCapitalAccountInvalidPeriod(t *testing.T) {
+	_, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+	capitalAccount := types.CreateDefaultCapitalAccount(0, 1, "testAccountId", "testFundId", "testInvestorId")
+	err := admin.BootstrapCapitalAccount(transactionContext, &capitalAccount)
+	assert.Equal(t, err, smartcontracterrors.CannotBootstrapCapitalAccountError)
+}
+
+func TestBootstrapCapitalAccountWithWithdrawals(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+
+	firstDeposit := types.CreateDefaultCapitalAccountAction("testDeposit1", "testAccountId", "deposit", "10000", false, "12-27-1996", 0)
+	firstDepositJSON, err := json.Marshal(firstDeposit)
+	assert.Nil(t, err)
+
+	secondDeposit := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId", "deposit", "3000", false, "12-27-1996", 0)
+	secondDepositJSON, err := json.Marshal(secondDeposit)
+	assert.Nil(t, err)
+
+	depositIterator := mocks.StateQueryIterator{}
+	depositIterator.HasNextReturnsOnCall(0, true)
+	depositIterator.HasNextReturnsOnCall(1, true)
+	depositIterator.HasNextReturnsOnCall(2, false)
+	depositIterator.NextReturnsOnCall(0, &queryresult.KV{
+		Value: firstDepositJSON,
+	}, nil)
+	depositIterator.NextReturnsOnCall(1, &queryresult.KV{
+		Value: secondDepositJSON,
+	}, nil)
+
+	withdrawal := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId", "withdrawal", "3000", false, "12-27-1996", 0)
+	withdrawalJSON, err := json.Marshal(withdrawal)
+
+	withdrawalIterator := mocks.StateQueryIterator{}
+	withdrawalIterator.HasNextReturnsOnCall(0, true)
+	withdrawalIterator.NextReturnsOnCall(0, &queryresult.KV{
+		Value: withdrawalJSON,
+	}, nil)
+
+	chaincodeStub.GetQueryResultReturnsOnCall(0, &depositIterator, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(1, &withdrawalIterator, nil)
+
+	capitalAccount := types.CreateDefaultCapitalAccount(0, 0, "testAccountId", "testFundId", "testInvestorId")
+
+	err = admin.BootstrapCapitalAccount(transactionContext, &capitalAccount)
+
+	currentPeriod := capitalAccount.CurrentPeriod
+	deposits := capitalAccount.Deposits["0"]
+	openingValue := capitalAccount.OpeningValue["0"]
+
+	assert.Equal(t, currentPeriod, 1)
+	assert.Equal(t, deposits, "10000")
+	assert.Equal(t, openingValue, "10000")
+}
+
+func TestBootstrapCapitalAccountInvalidWithdrawals(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+
+	firstDeposit := types.CreateDefaultCapitalAccountAction("testDeposit1", "testAccountId", "deposit", "10000", false, "12-27-1996", 0)
+	firstDepositJSON, err := json.Marshal(firstDeposit)
+	assert.Nil(t, err)
+
+	secondDeposit := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId", "deposit", "3000", false, "12-27-1996", 0)
+	secondDepositJSON, err := json.Marshal(secondDeposit)
+	assert.Nil(t, err)
+
+	depositIterator := mocks.StateQueryIterator{}
+	depositIterator.HasNextReturnsOnCall(0, true)
+	depositIterator.HasNextReturnsOnCall(1, true)
+	depositIterator.HasNextReturnsOnCall(2, false)
+	depositIterator.NextReturnsOnCall(0, &queryresult.KV{
+		Value: firstDepositJSON,
+	}, nil)
+	depositIterator.NextReturnsOnCall(1, &queryresult.KV{
+		Value: secondDepositJSON,
+	}, nil)
+
+	withdrawal := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId", "withdrawal", "14000", false, "12-27-1996", 0)
+	withdrawalJSON, err := json.Marshal(withdrawal)
+
+	withdrawalIterator := mocks.StateQueryIterator{}
+	withdrawalIterator.HasNextReturnsOnCall(0, true)
+	withdrawalIterator.NextReturnsOnCall(0, &queryresult.KV{
+		Value: withdrawalJSON,
+	}, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(0, &depositIterator, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(1, &withdrawalIterator, nil)
+	capitalAccount := types.CreateDefaultCapitalAccount(0, 0, "testAccountId", "testFundId", "testInvestorId")
+	err = admin.BootstrapCapitalAccount(transactionContext, &capitalAccount)
+	assert.Equal(t, err, smartcontracterrors.NegativeCapitalAccountBalanceError)
+}
+
+func TestBootstrapFund(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+
+	//query fund
+	fund := types.CreateDefaultFund("testId", "testFund", "12-27-1996")
+	fundJSON, err := json.Marshal(fund)
+	assert.Nil(t, err)
+	chaincodeStub.GetStateReturnsOnCall(0, fundJSON, nil)
+
+	//query capital accounts
+	capitalAccount1 := types.CreateDefaultCapitalAccount(0, 0, "testAccountId1", "testFundId", "testInvestorId1")
+	capitalAccount1JSON, err := json.Marshal(capitalAccount1)
+	assert.Nil(t, err)
+	capitalAccount2 := types.CreateDefaultCapitalAccount(0, 0, "testAccountId2", "testFundId", "testInvestorId2")
+	capitalAccount2JSON, err := json.Marshal(capitalAccount2)
+	assert.Nil(t, err)
+	capitalAccountIterator := mocks.StateQueryIterator{}
+	capitalAccountIterator.HasNextReturnsOnCall(0, true)
+	capitalAccountIterator.HasNextReturnsOnCall(1, true)
+	capitalAccountIterator.HasNextReturnsOnCall(2, false)
+	capitalAccountIterator.NextReturnsOnCall(0, &queryresult.KV{Value: capitalAccount1JSON}, nil)
+	capitalAccountIterator.NextReturnsOnCall(1, &queryresult.KV{Value: capitalAccount2JSON}, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(0, &capitalAccountIterator, nil)
+
+	//capital account 1 bootstrap
+	firstDeposit := types.CreateDefaultCapitalAccountAction("testDeposit1", "testAccountId1", "deposit", "10000", false, "12-27-1996", 0)
+	firstDepositJSON, err := json.Marshal(firstDeposit)
+	assert.Nil(t, err)
+	depositIterator1 := mocks.StateQueryIterator{}
+	depositIterator1.HasNextReturnsOnCall(0, true)
+	depositIterator1.HasNextReturnsOnCall(1, false)
+	depositIterator1.NextReturnsOnCall(0, &queryresult.KV{Value: firstDepositJSON}, nil)
+	withdrawalIterator1 := mocks.StateQueryIterator{}
+	withdrawalIterator1.HasNextReturnsOnCall(0, false)
+	chaincodeStub.GetQueryResultReturnsOnCall(1, &depositIterator1, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(2, &withdrawalIterator1, nil)
+
+	//capital account 2 bootstrap
+	secondDeposit := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId2", "deposit", "90000", false, "12-27-1996", 0)
+	secondDepositJSON, err := json.Marshal(secondDeposit)
+	assert.Nil(t, err)
+	depositIterator2 := mocks.StateQueryIterator{}
+	depositIterator2.HasNextReturnsOnCall(0, true)
+	depositIterator2.HasNextReturnsOnCall(1, false)
+	depositIterator2.NextReturnsOnCall(0, &queryresult.KV{Value: secondDepositJSON}, nil)
+	withdrawalIterator2 := mocks.StateQueryIterator{}
+	withdrawalIterator2.HasNextReturnsOnCall(0, false)
+	chaincodeStub.GetQueryResultReturnsOnCall(3, &depositIterator2, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(4, &withdrawalIterator2, nil)
+
+	//run the test
+	resultFund, err := admin.BootstrapFund(transactionContext, "testId")
+	assert.Nil(t, err)
+
+	openingValue := resultFund.OpeningValues["0"]
+	deposits := resultFund.OpeningValues["0"]
+
+	assert.Equal(t, openingValue, "100000")
+	assert.Equal(t, deposits, "100000")
+}
+
+func TestBootstrapFundInvalidPeriod(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+	fund := types.CreateDefaultFund("testId", "testFund", "12-27-1996")
+	fund.IncrementCurrentPeriod()
+	fundJSON, err := json.Marshal(fund)
+	assert.Nil(t, err)
+	chaincodeStub.GetStateReturnsOnCall(0, fundJSON, nil)
+	result, err := admin.BootstrapFund(transactionContext, "testId")
+	assert.Nil(t, result)
+	assert.Equal(t, err, smartcontracterrors.CannotBootstrapFundError)
+}
+
+func TestStepFundInvalidPeriod(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+	fund := types.CreateDefaultFund("testId", "testFund", "12-27-1996")
+	fundJSON, err := json.Marshal(fund)
+	assert.Nil(t, err)
+	chaincodeStub.GetStateReturnsOnCall(0, fundJSON, nil)
+	_, err = admin.StepFund(transactionContext, "testId")
+	assert.Equal(t, err, smartcontracterrors.CannotStepFundError)
+}
+
+func TestStepFundCannotReadWorldState(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+	chaincodeStub.GetStateReturnsOnCall(0, nil, smartcontracterrors.ReadingWorldStateError)
+	_, err := admin.StepFund(transactionContext, "testId")
+	assert.Equal(t, err, smartcontracterrors.ReadingWorldStateError)
+}
+
+func TestStepFundInvalidFund(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+	chaincodeStub.GetStateReturnsOnCall(0, nil, nil)
+	_, err := admin.StepFund(transactionContext, "testId")
+	assert.Equal(t, err, smartcontracterrors.FundNotFoundError)
+}
+
+func TestBootstrapFundCannotReadWorldState(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+	chaincodeStub.GetStateReturnsOnCall(0, nil, smartcontracterrors.ReadingWorldStateError)
+	_, err := admin.BootstrapFund(transactionContext, "testId")
+	assert.Equal(t, err, smartcontracterrors.ReadingWorldStateError)
+}
+
+func TestBootstrapFundInvalidFund(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+	chaincodeStub.GetStateReturnsOnCall(0, nil, nil)
+	_, err := admin.BootstrapFund(transactionContext, "testId")
+	assert.Equal(t, err, smartcontracterrors.FundNotFoundError)
+}
+
+func TestStepFund(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+
+	fund := types.CreateDefaultFund("testFundId", "testFund", "12-27-1996")
+	fund.IncrementCurrentPeriod() //step fund checks that it is not 0 which is the default value
+	fundJSON, err := json.Marshal(fund)
+	assert.Nil(t, err)
+	chaincodeStub.GetStateReturnsOnCall(0, fundJSON, nil)
+
+	//create the first portfolio
+	portfolio1 := types.CreateDefaultPortfolio("testPortfolioId", "testFundId", "testPortfolio1")
+	portfolio1.MostRecentDate = "12-27-1996"
+	cash := types.ValuedAsset{
+		Name:     "cash",
+		CUSIP:    "-1",
+		Amount:   "100000",
+		Currency: "USD",
+		Price:    "1",
+	}
+	AAPL := types.ValuedAsset{
+		Name:     "AAPL",
+		CUSIP:    "037833100",
+		Amount:   "300",
+		Currency: "USD",
+		Price:    "148.88",
+	}
+	portfolio1.Valuations = make(types.DateValuedAssetMap)
+	portfolio1.Valuations[portfolio1.MostRecentDate] = make(types.ValuedAssetMap)
+	portfolio1.Valuations[portfolio1.MostRecentDate]["cash"] = cash
+	portfolio1.Valuations[portfolio1.MostRecentDate]["AAPL"] = AAPL
+	portfolio1JSON, err := json.Marshal(portfolio1)
+	assert.Nil(t, err)
+
+	portfolioIterator := mocks.StateQueryIterator{}
+	portfolioIterator.HasNextReturnsOnCall(0, true)
+	portfolioIterator.HasNextReturnsOnCall(1, false)
+	portfolioIterator.NextReturnsOnCall(0, &queryresult.KV{Value: portfolio1JSON}, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(0, &portfolioIterator, nil)
+
+	_, err = admin.StepFund(transactionContext, "testFundId")
+	fmt.Println(err)
 }

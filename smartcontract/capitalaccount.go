@@ -25,6 +25,7 @@ func (s *AdminContract) CreateCapitalAccount(ctx contractapi.TransactionContextI
 	if fund == nil {
 		return smartcontracterrors.FundNotFoundError
 	}
+	fund.IncrementInvestorNumber()
 	investor, err := s.QueryInvestorById(ctx, investorId)
 	if err != nil {
 		return smartcontracterrors.ReadingWorldStateError
@@ -32,13 +33,12 @@ func (s *AdminContract) CreateCapitalAccount(ctx contractapi.TransactionContextI
 	if investor == nil {
 		return smartcontracterrors.InvestorNotFoundError
 	}
-	fund.NextInvestorNumber += 1
-	err = fund.SaveState(ctx)
+	err = SaveState(ctx, fund)
 	if err != nil {
-		return smartcontracterrors.WritingWorldStateError
+		return err
 	}
-	capitalAccount := types.CreateDefaultCapitalAccount(fund.NextInvestorNumber, fund.CurrentPeriod, capitalAccountId, fundId, investorId)
-	return capitalAccount.SaveState(ctx)
+	capitalAccount := types.CreateDefaultCapitalAccount(fund.NextInvestorNumber-1, fund.CurrentPeriod, capitalAccountId, fundId, investorId)
+	return SaveState(ctx, &capitalAccount)
 }
 
 func (s *AdminContract) CreateCapitalAccountAction(ctx contractapi.TransactionContextInterface, transactionId string, capitalAccountId string, type_ string, amount string, full bool, date string, period int) error {

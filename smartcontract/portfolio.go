@@ -28,7 +28,7 @@ func (s *AdminContract) CreatePortfolio(ctx contractapi.TransactionContextInterf
 		return smartcontracterrors.FundNotFoundError
 	}
 	portfolio := types.CreateDefaultPortfolio(portfolioId, fundId, name)
-	return portfolio.SaveState(ctx)
+	return SaveState(ctx, &portfolio)
 }
 
 func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContextInterface, actionId string, portfolioId string, type_ string, date string, period int, name string, cusip string, amount string, currency string) error {
@@ -48,11 +48,11 @@ func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContext
 	if err != nil {
 		return err
 	}
-	err = portfolio.SaveState(ctx)
+	err = SaveState(ctx, portfolio)
 	if err != nil {
 		return err
 	}
-	return portfolioAction.SaveState(ctx)
+	return SaveState(ctx, &portfolioAction)
 }
 
 func (s *AdminContract) UpdatePortfolioValuation(ctx contractapi.TransactionContextInterface, portfolioId string, date string, name string, price string) error {
@@ -114,7 +114,7 @@ func executePortfolioAction(portfolio *types.Portfolio, action *types.PortfolioA
 	case "sell":
 		return sellSecurityForPortfolio(portfolio, action)
 	default:
-		return errors.New("unrecognized action type")
+		return smartcontracterrors.InvalidPortfolioActionTypeError
 	}
 }
 

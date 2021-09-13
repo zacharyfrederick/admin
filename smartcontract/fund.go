@@ -20,7 +20,7 @@ func (s *AdminContract) CreateFund(ctx contractapi.TransactionContextInterface, 
 		return smartcontracterrors.IdAlreadyInUseError
 	}
 	fund := types.CreateDefaultFund(fundId, name, inceptionDate)
-	return fund.SaveState(ctx)
+	return SaveState(ctx, &fund)
 }
 
 func (s *AdminContract) QueryFundById(ctx contractapi.TransactionContextInterface, fundId string) (*types.Fund, error) {
@@ -31,23 +31,99 @@ func (s *AdminContract) QueryFundById(ctx contractapi.TransactionContextInterfac
 	if fundJSON == nil {
 		return nil, nil
 	}
-	return types.CreateFundFromJSON(fundJSON)
+	var fund types.Fund
+	err = LoadState(fundJSON, &fund)
+	if err != nil {
+		return nil, err
+	}
+	return &fund, err
 }
 
-func (s *AdminContract) BootstrapFund(ctx contractapi.TransactionContextInterface, fundId string) error {
+func (s *AdminContract) StepFund(ctx contractapi.TransactionContextInterface, fundId string) (*types.Fund, error) {
 	fund, err := s.QueryFundById(ctx, fundId)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	if fund == nil {
-		return smartcontracterrors.FundNotFoundError
+		return nil, smartcontracterrors.FundNotFoundError
+	}
+	if fund.CurrentPeriod == 0 {
+		return nil, smartcontracterrors.CannotStepFundError
+	}
+	fundClosingVaue, err := s.CalculateFundClosingValue(ctx, fund)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(fundClosingVaue)
+	return fund, nil
+}
+
+func (s *AdminContract) CalculateFundClosingValue(ctx contractapi.TransactionContextInterface, fund *types.Fund) (string, error) {
+	portfolios, err := s.QueryPortfoliosByFund(ctx, fund.ID)
+	if err != nil {
+		return "", err
+	}
+	if portfolios == nil {
+		return "", smartcontracterrors.NoPortfoliosFoundError
+	}
+	NAV := decimal.Zero
+	for _, portfolio := range portfolios {
+		fmt.Println(portfolio)
+		if portfolio.MostRecentDate == "" {
+			return "", smartcontracterrors.NoMostRecentDateForPortfolioError
+		}
+		valuationDate := portfolio.MostRecentDate
+		valuations, ok := portfolio.Valuations[valuationDate]
+		if !ok {
+			return "", smartcontracterrors.NoValuationsFoundForDateError
+		}
+		portfolioTotal, err := calculatePortfolioNAV(valuations)
+		if err != nil {
+			return "", err
+		}
+		NAV = NAV.Add(portfolioTotal)
+	}
+	return NAV.String(), nil
+}
+
+func calculatePortfolioNAV(valuations types.ValuedAssetMap) (decimal.Decimal, error) {
+	portfolioTotal := decimal.Zero
+	for _, valuedAsset := range valuations {
+		amount, err := decimal.NewFromString(valuedAsset.Amount)
+		if err != nil {
+			return decimal.Zero, smartcontracterrors.DecimalConversionError
+		}
+		price, err := decimal.NewFromString(valuedAsset.Price)
+		if err != nil {
+			return decimal.Zero, smartcontracterrors.DecimalConversionError
+		}
+		subtotal := amount.Mul(price)
+		portfolioTotal = portfolioTotal.Add(subtotal)
+	}
+	return portfolioTotal, nil
+}
+
+func (s *AdminContract) BootstrapFund(ctx contractapi.TransactionContextInterface, fundId string) (*types.Fund, error) {
+	fund, err := s.QueryFundById(ctx, fundId)
+	if err != nil {
+		return nil, err
+	}
+	if fund == nil {
+		return nil, smartcontracterrors.FundNotFoundError
+	}
+	if fund.CurrentPeriod != 0 {
+		return nil, smartcontracterrors.CannotBootstrapFundError
 	}
 	bootstrappedFundValues, err := s.BootstrapCapitalAccountsForFund(ctx, fundId)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fund.BootstrapFundValues(bootstrappedFundValues.TotalDeposits, bootstrappedFundValues.OpeningFundValue)
-	return fund.SaveState(ctx)
+	err = SaveState(ctx, fund)
+	if err != nil {
+		return nil, err
+	}
+	return fund, nil
 }
 
 func (s *AdminContract) BootstrapCapitalAccountsForFund(ctx contractapi.TransactionContextInterface, fundId string) (*BootstrappedFundValues, error) {
@@ -73,11 +149,11 @@ func (s *AdminContract) BootstrapCapitalAccountsForFund(ctx contractapi.Transact
 	}
 	//update the ownership percentage for each account based on the closing fund value
 	for _, account := range accounts {
-		err := updateCapitalAccountOwnership(ctx, account, openingFundValue)
+		err := updateCapitalAccountOwnership(account, openingFundValue)
 		if err != nil {
 			return &BootstrappedFundValues{}, err
 		}
-		account.SaveState(ctx)
+		SaveState(ctx, account)
 	}
 	retValue := &BootstrappedFundValues{
 		OpeningFundValue: openingFundValue.String(),
@@ -86,7 +162,7 @@ func (s *AdminContract) BootstrapCapitalAccountsForFund(ctx contractapi.Transact
 	return retValue, nil
 }
 
-func updateCapitalAccountOwnership(ctx contractapi.TransactionContextInterface, account *types.CapitalAccount, openingFundValue decimal.Decimal) error {
+func updateCapitalAccountOwnership(account *types.CapitalAccount, openingFundValue decimal.Decimal) error {
 	currentPeriod := fmt.Sprintf("%d", account.CurrentPeriod-1) //we have already updated current period for this account
 	openingAccountValue, err := decimal.NewFromString(account.OpeningValue[currentPeriod])
 	if err != nil {
@@ -99,7 +175,7 @@ func updateCapitalAccountOwnership(ctx contractapi.TransactionContextInterface, 
 
 func (s *AdminContract) BootstrapCapitalAccount(ctx contractapi.TransactionContextInterface, account *types.CapitalAccount) error {
 	if account.CurrentPeriod != 0 {
-		return errors.New("this capital account cannot be bootstrapped")
+		return smartcontracterrors.CannotBootstrapCapitalAccountError
 	}
 	deposits, err := QueryDepositsByFundAccountPeriod(ctx, account.ID, account.CurrentPeriod)
 	if err != nil {
@@ -120,7 +196,7 @@ func (s *AdminContract) BootstrapCapitalAccount(ctx contractapi.TransactionConte
 	}
 	openingValue := closingValue.Add(total)
 	if openingValue.Sign() == -1 {
-		return errors.New("the actions resulted in a negative capital account balance")
+		return smartcontracterrors.NegativeCapitalAccountBalanceError
 	}
 	account.BootstrapAccountValues(openingValue.String())
 	return nil

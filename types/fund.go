@@ -22,6 +22,14 @@ type Fund struct {
 	PeriodUpdated      bool              `json:"periodUpdated"`
 }
 
+func (f *Fund) IncrementInvestorNumber() {
+	f.NextInvestorNumber += 1
+}
+
+func (f *Fund) IncrementCurrentPeriod() {
+	f.CurrentPeriod += 1
+}
+
 func (f *Fund) CurrentPeriodAsString() string {
 	return fmt.Sprintf("%d", f.CurrentPeriod)
 }
@@ -30,12 +38,24 @@ func (f *Fund) PreviousPeriodAsString() string {
 	return fmt.Sprintf("%d", f.CurrentPeriod-1)
 }
 
+func (f *Fund) GetID() string {
+	return f.ID
+}
+
 func (f *Fund) ToJSON() ([]byte, error) {
 	fundJSON, err := json.Marshal(f)
 	if err != nil {
 		return nil, err
 	}
 	return fundJSON, nil
+}
+
+func (f *Fund) FromJSON(data []byte) error {
+	err := json.Unmarshal(data, f)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (f *Fund) SaveState(ctx contractapi.TransactionContextInterface) error {

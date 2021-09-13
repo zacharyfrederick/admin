@@ -103,12 +103,24 @@ func CreateDefaultPortfolio(portfolioId string, fundId string, name string) Port
 	return portfolio
 }
 
-func (p *Portfolio) ToJSON() ([]byte, error) {
-	portfolioJSON, err := json.Marshal(p)
+func (f *Portfolio) GetID() string {
+	return f.ID
+}
+
+func (f *Portfolio) ToJSON() ([]byte, error) {
+	portfolioJSON, err := json.Marshal(f)
 	if err != nil {
 		return nil, err
 	}
 	return portfolioJSON, nil
+}
+
+func (f *Portfolio) FromJSON(data []byte) error {
+	err := json.Unmarshal(data, f)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 func (p *Portfolio) SaveState(ctx contractapi.TransactionContextInterface) error {
 	portfolioJSON, err := p.ToJSON()
@@ -116,6 +128,26 @@ func (p *Portfolio) SaveState(ctx contractapi.TransactionContextInterface) error
 		return err
 	}
 	return ctx.GetStub().PutState(p.ID, portfolioJSON)
+}
+
+func (f *PortfolioAction) GetID() string {
+	return f.ID
+}
+
+func (f *PortfolioAction) ToJSON() ([]byte, error) {
+	portfolioActionJSON, err := json.Marshal(f)
+	if err != nil {
+		return nil, err
+	}
+	return portfolioActionJSON, nil
+}
+
+func (f *PortfolioAction) FromJSON(data []byte) error {
+	err := json.Unmarshal(data, f)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *PortfolioAction) SaveState(ctx contractapi.TransactionContextInterface) error {

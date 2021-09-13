@@ -3,7 +3,6 @@ package smartcontract_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/zacharyfrederick/admin/smartcontract"
@@ -513,6 +512,27 @@ func TestStepFund(t *testing.T) {
 	portfolioIterator.NextReturnsOnCall(0, &queryresult.KV{Value: portfolio1JSON}, nil)
 	chaincodeStub.GetQueryResultReturnsOnCall(0, &portfolioIterator, nil)
 
+	//capital accounts
+	capitalAccount1 := types.CreateDefaultCapitalAccount(0, 0, "testAccountId1", "testFundId", "testInvestorId1")
+	capitalAccount1.IncrementCurrentPeriod()
+	capitalAccount1.OwnershipPercentage["0"] = "0.1" //set the previous periods ownership
+	capitalAccount1JSON, err := json.Marshal(capitalAccount1)
+	assert.Nil(t, err)
+
+	capitalAccount2 := types.CreateDefaultCapitalAccount(0, 0, "testAccountId2", "testFundId", "testInvestorId2")
+	capitalAccount2.IncrementCurrentPeriod()
+	capitalAccount2.OwnershipPercentage["0"] = "0.9"
+	capitalAccount2JSON, err := json.Marshal(capitalAccount2)
+	assert.Nil(t, err)
+
+	capitalAccountIterator := mocks.StateQueryIterator{}
+	capitalAccountIterator.HasNextReturnsOnCall(0, true)
+	capitalAccountIterator.HasNextReturnsOnCall(1, true)
+	capitalAccountIterator.HasNextReturnsOnCall(2, false)
+	capitalAccountIterator.NextReturnsOnCall(0, &queryresult.KV{Value: capitalAccount1JSON}, nil)
+	capitalAccountIterator.NextReturnsOnCall(1, &queryresult.KV{Value: capitalAccount2JSON}, nil)
+
+	chaincodeStub.GetQueryResultReturnsOnCall(1, &capitalAccountIterator, nil)
+
 	_, err = admin.StepFund(transactionContext, "testFundId")
-	fmt.Println(err)
 }

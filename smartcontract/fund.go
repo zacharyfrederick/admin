@@ -54,8 +54,139 @@ func (s *AdminContract) StepFund(ctx contractapi.TransactionContextInterface, fu
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(fundClosingVaue)
+	accounts, err := s.QueryCapitalAccountsByFund(ctx, fund.ID)
+	if err != nil {
+		return nil, err
+	}
+	if accounts == nil {
+		return nil, smartcontracterrors.NoCapitalAccountsFoundError
+	}
+	err = calculateCapitalAccountClosingValues(accounts, fundClosingVaue)
+	if err != nil {
+		return nil, err
+	}
+	totalDeposits, err := calculateAggregateDeposits(ctx, accounts)
+	if err != nil {
+		return nil, err
+	}
+	totalFees, err := calculateAggregateFixedFees(ctx, accounts)
+	if err != nil {
+		return nil, err
+	}
+	fundOpeningValue, err := calculateCapitalAccountOpeningValues(accounts)
+	if err != nil {
+		return nil, err
+	}
 	return fund, nil
+}
+
+func calculateCapitalAccountOpeningValues(accounts []*types.CapitalAccount) (decimal.Decimal, error) {
+	fundOpeningValue := decimal.Zero
+	for _, account := range accounts {
+		closingValue, err := decimal.NewFromString(account.ClosingValue[account.CurrentPeriodAsString()])
+		if err != nil {
+			return decimal.Zero, smartcontracterrors.DecimalConversionError
+		}
+		fixedFees, err := decimal.NewFromString(account.FixedFees[account.CurrentPeriodAsString()])
+		if err != nil {
+			return decimal.Zero, smartcontracterrors.DecimalConversionError
+		}
+		deposits, err := decimal.NewFromString(account.Deposits[account.CurrentPeriodAsString()])
+		if err != nil {
+			return decimal.Zero, err
+		}
+		openingValue := closingValue.Sub(fixedFees).Add(deposits)
+		account.OpeningValue[account.CurrentPeriodAsString()] = openingValue.String()
+		fundOpeningValue = fundOpeningValue.Add(openingValue)
+	}
+	return fundOpeningValue, nil
+}
+
+func calculateAggregateFixedFees(ctx contractapi.TransactionContextInterface, accounts []*types.CapitalAccount) (decimal.Decimal, error) {
+	aggregateFixedFees := decimal.Zero
+	for i, account := range accounts {
+		if i == 0 {
+			continue //no fixed fees for the general partner
+		}
+		accountFixedFees, err := calculateCapitalAccountFixedFees(account)
+		if err != nil {
+			return decimal.Zero, err
+		}
+		aggregateFixedFees = aggregateFixedFees.Add(accountFixedFees)
+	}
+	return aggregateFixedFees, nil
+}
+
+func calculateCapitalAccountFixedFees(account *types.CapitalAccount) (decimal.Decimal, error) {
+	closingValue, err := decimal.NewFromString(account.ClosingValue[account.CurrentPeriodAsString()])
+	if err != nil {
+		return decimal.Zero, smartcontracterrors.DecimalConversionError
+	}
+	fixedFeePercentage, err := decimal.NewFromString(account.FixedFee)
+	if err != nil {
+		return decimal.Zero, smartcontracterrors.DecimalConversionError
+	}
+	fixedFee := fixedFeePercentage.Mul(closingValue)
+	account.FixedFees[account.CurrentPeriodAsString()] = fixedFee.String()
+	return fixedFee, nil
+}
+
+func calculateAggregateDeposits(ctx contractapi.TransactionContextInterface, accounts []*types.CapitalAccount) (decimal.Decimal, error) {
+	aggregateDeposits := decimal.Zero
+	for _, account := range accounts {
+		accountDeposits, err := calculateCapitalAccountDeposits(ctx, account)
+		if err != nil {
+			return decimal.Zero, err
+		}
+		aggregateDeposits = aggregateDeposits.Add(accountDeposits)
+	}
+	return aggregateDeposits, nil
+}
+
+func calculateCapitalAccountDeposits(ctx contractapi.TransactionContextInterface, account *types.CapitalAccount) (decimal.Decimal, error) {
+	deposits, err := QueryDepositsByFundAccountPeriod(ctx, account.ID, account.CurrentPeriod)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	withdrawals, err := QueryWithdrawalsByFundAccountPeriod(ctx, account.ID, account.CurrentPeriod)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	total, err := aggregateActions(deposits, withdrawals)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	account.Deposits[account.CurrentPeriodAsString()] = total.String()
+	return total, nil
+}
+
+func calculateCapitalAccountClosingValues(accounts []*types.CapitalAccount, fundClosingValue string) error {
+	closingValue, err := decimal.NewFromString(fundClosingValue)
+	if err != nil {
+		return smartcontracterrors.DecimalConversionError
+	}
+	for _, account := range accounts {
+		err := updateCapitalAccountClosingValue(account, closingValue)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func updateCapitalAccountClosingValue(account *types.CapitalAccount, fundClosingValue decimal.Decimal) error {
+	previousPeriod := account.PreviousPeriodAsString()
+	previousOwnershipPercentage, ok := account.OwnershipPercentage[previousPeriod]
+	if !ok {
+		return smartcontracterrors.PreviousOwnershipPercentageNotFoundError
+	}
+	ownershipPercentage, err := decimal.NewFromString(previousOwnershipPercentage)
+	if err != nil {
+		return smartcontracterrors.DecimalConversionError
+	}
+	closingValue := ownershipPercentage.Mul(fundClosingValue)
+	account.ClosingValue[account.CurrentPeriodAsString()] = closingValue.String()
+	return nil
 }
 
 func (s *AdminContract) CalculateFundClosingValue(ctx contractapi.TransactionContextInterface, fund *types.Fund) (string, error) {
@@ -68,7 +199,6 @@ func (s *AdminContract) CalculateFundClosingValue(ctx contractapi.TransactionCon
 	}
 	NAV := decimal.Zero
 	for _, portfolio := range portfolios {
-		fmt.Println(portfolio)
 		if portfolio.MostRecentDate == "" {
 			return "", smartcontracterrors.NoMostRecentDateForPortfolioError
 		}

@@ -23,6 +23,7 @@ type CapitalAccount struct {
 	OwnershipPercentage map[string]string `json:"ownershipPercentage"`
 	HighWaterMark       HighWaterMark     `json:"highWaterMark"`
 	PeriodUpdated       bool              `json:"periodUpdated"`
+	FixedFee            string            `json:"fixedFee"`
 }
 
 func (f *CapitalAccount) GetID() string {
@@ -57,10 +58,18 @@ func (c *CapitalAccount) CurrentPeriodAsString() string {
 	return fmt.Sprintf("%d", c.CurrentPeriod)
 }
 
+func (c *CapitalAccount) PreviousPeriodAsString() string {
+	return fmt.Sprintf("%d", c.CurrentPeriod-1)
+}
+
 func (c *CapitalAccount) BootstrapAccountValues(openingValue string) {
 	currentPeriod := c.CurrentPeriodAsString()
 	c.Deposits[currentPeriod] = openingValue
 	c.OpeningValue[currentPeriod] = openingValue
+	c.CurrentPeriod += 1
+}
+
+func (c *CapitalAccount) IncrementCurrentPeriod() {
 	c.CurrentPeriod += 1
 }
 
@@ -89,6 +98,7 @@ func CreateDefaultCapitalAccount(nextInvestorNumber int, currentPeriod int, acco
 		OwnershipPercentage: ownershipPercentageMap,
 		HighWaterMark:       HighWaterMark{Amount: "0.0", Date: "None"},
 		PeriodUpdated:       false,
+		FixedFee:            "0.02",
 	}
 	return capitalAccount
 }

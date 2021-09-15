@@ -17,3 +17,7 @@ startServer:
 .PHONY: cleanWallet
 cleanWallet:
 	rm -rf ${GOPATH}/src/github.com/zacharyfrederick/admin/cmd/server/wallet/*.id
+
+.PHONY: testSmartcontract
+test:
+	/bin/bash ./scripts/testSmartcontract.sh

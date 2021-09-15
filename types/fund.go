@@ -9,17 +9,19 @@ import (
 )
 
 type Fund struct {
-	DocType            string            `json:"docType"`
-	ID                 string            `json:"id"`
-	Name               string            `json:"name"`
-	CurrentPeriod      int               `json:"currentPeriod"`
-	InceptionDate      string            `json:"inceptionDate"`
-	ClosingValues      map[string]string `json:"periodClosingValue"`
-	OpeningValues      map[string]string `json:"periodOpeningValue"`
-	FixedFees          map[string]string `json:"aggregateFixedFees"`
-	Deposits           map[string]string `json:"aggregateDeposits"`
-	NextInvestorNumber int               `json:"nextInvestorNumber"`
-	PeriodUpdated      bool              `json:"periodUpdated"`
+	DocType              string            `json:"docType"`
+	ID                   string            `json:"id"`
+	Name                 string            `json:"name"`
+	CurrentPeriod        int               `json:"currentPeriod"`
+	InceptionDate        string            `json:"inceptionDate"`
+	ClosingValues        map[string]string `json:"periodClosingValue"`
+	OpeningValues        map[string]string `json:"periodOpeningValue"`
+	FixedFees            map[string]string `json:"aggregateFixedFees"`
+	Deposits             map[string]string `json:"aggregateDeposits"`
+	NextInvestorNumber   int               `json:"nextInvestorNumber"`
+	PeriodUpdated        bool              `json:"periodUpdated"`
+	HasPerformanceFees   bool              `json:"hasPerformanceFees"`
+	PerformanceFeePeriod int               `json:"performanceFeePeriod"`
 }
 
 func (f *Fund) IncrementInvestorNumber() {
@@ -84,17 +86,19 @@ func CreateDefaultFund(fundId string, name string, inceptionDate string) Fund {
 	deposits["0"] = "0"
 
 	fund := Fund{
-		DocType:            doctypes.DOCTYPE_FUND,
-		ID:                 fundId,
-		Name:               name,
-		CurrentPeriod:      0,
-		InceptionDate:      inceptionDate,
-		NextInvestorNumber: 0,
-		ClosingValues:      closingValues,
-		OpeningValues:      openingValues,
-		FixedFees:          fixedFees,
-		Deposits:           deposits,
-		PeriodUpdated:      false,
+		DocType:              doctypes.DOCTYPE_FUND,
+		ID:                   fundId,
+		Name:                 name,
+		CurrentPeriod:        0,
+		InceptionDate:        inceptionDate,
+		NextInvestorNumber:   0,
+		ClosingValues:        closingValues,
+		OpeningValues:        openingValues,
+		FixedFees:            fixedFees,
+		Deposits:             deposits,
+		PeriodUpdated:        false,
+		HasPerformanceFees:   true,
+		PerformanceFeePeriod: 12,
 	}
 	return fund
 }
@@ -115,4 +119,9 @@ type CreateFundRequest struct {
 
 func ValidateCreateFundRequest(r *CreateFundRequest) bool {
 	return true
+}
+
+type FundAndCapitalAccounts struct {
+	Fund     *Fund             `json:"fund"`
+	Accounts []*CapitalAccount `json:"accounts"`
 }

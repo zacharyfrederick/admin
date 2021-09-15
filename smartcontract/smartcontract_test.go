@@ -522,6 +522,7 @@ func TestStepFund(t *testing.T) {
 	capitalAccount2 := types.CreateDefaultCapitalAccount(0, 0, "testAccountId2", "testFundId", "testInvestorId2")
 	capitalAccount2.IncrementCurrentPeriod()
 	capitalAccount2.OwnershipPercentage["0"] = "0.9"
+	capitalAccount2.Number = 1
 	capitalAccount2JSON, err := json.Marshal(capitalAccount2)
 	assert.Nil(t, err)
 
@@ -531,8 +532,82 @@ func TestStepFund(t *testing.T) {
 	capitalAccountIterator.HasNextReturnsOnCall(2, false)
 	capitalAccountIterator.NextReturnsOnCall(0, &queryresult.KV{Value: capitalAccount1JSON}, nil)
 	capitalAccountIterator.NextReturnsOnCall(1, &queryresult.KV{Value: capitalAccount2JSON}, nil)
-
 	chaincodeStub.GetQueryResultReturnsOnCall(1, &capitalAccountIterator, nil)
 
-	_, err = admin.StepFund(transactionContext, "testFundId")
+	depositsIterator := mocks.StateQueryIterator{}
+	depositsIterator.HasNextReturnsOnCall(0, false) //capital account 1
+	depositsIterator.HasNextReturnsOnCall(1, true)  //capital account 2
+	depositsIterator.HasNextReturnsOnCall(2, false) //capital account 2
+	firstDeposit := types.CreateDefaultCapitalAccountAction("testDeposit1", "testAccountId1", "deposit", "10000", false, "12-27-1996", 1)
+	firstDepositJSON, err := json.Marshal(firstDeposit)
+	assert.Nil(t, err)
+	depositsIterator.NextReturnsOnCall(0, &queryresult.KV{Value: firstDepositJSON}, nil)
+	withdrawalIterator := mocks.StateQueryIterator{}
+	withdrawalIterator.HasNextReturnsOnCall(9, false)
+	withdrawalIterator.HasNextReturnsOnCall(1, false)
+	chaincodeStub.GetQueryResultReturnsOnCall(2, &depositsIterator, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(3, &withdrawalIterator, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(4, &depositsIterator, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(5, &withdrawalIterator, nil)
+	result, err := admin.StepFund(transactionContext, "testFundId")
+	assert.Nil(t, err)
+
+	resultFund := result.Fund
+	resultClosingValue := resultFund.ClosingValues[resultFund.PreviousPeriodAsString()]
+	resultOpeningValue := resultFund.OpeningValues[resultFund.PreviousPeriodAsString()]
+	resultFixedFees := resultFund.FixedFees[resultFund.PreviousPeriodAsString()]
+	resultDeposits := resultFund.Deposits[resultFund.PreviousPeriodAsString()]
+	assert.Equal(t, resultClosingValue, "144664")
+	assert.Equal(t, resultOpeningValue, "154664")
+	assert.Equal(t, resultFixedFees, "2603.952")
+	assert.Equal(t, resultDeposits, "12603.952")
+}
+
+func TestStepFundNoCapitalAccounts(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+
+	fund := types.CreateDefaultFund("testFundId", "testFund", "12-27-1996")
+	fund.IncrementCurrentPeriod() //stepFund checks that it is not 0 which is the default value
+	fundJSON, err := json.Marshal(fund)
+	assert.Nil(t, err)
+	chaincodeStub.GetStateReturnsOnCall(0, fundJSON, nil)
+
+	//create the first portfolio
+	portfolio1 := types.CreateDefaultPortfolio("testPortfolioId", "testFundId", "testPortfolio1")
+	portfolio1.MostRecentDate = "12-27-1996"
+	cash := types.ValuedAsset{
+		Name:     "cash",
+		CUSIP:    "-1",
+		Amount:   "100000",
+		Currency: "USD",
+		Price:    "1",
+	}
+	AAPL := types.ValuedAsset{
+		Name:     "AAPL",
+		CUSIP:    "037833100",
+		Amount:   "300",
+		Currency: "USD",
+		Price:    "148.88",
+	}
+	portfolio1.Valuations = make(types.DateValuedAssetMap)
+	portfolio1.Valuations[portfolio1.MostRecentDate] = make(types.ValuedAssetMap)
+	portfolio1.Valuations[portfolio1.MostRecentDate]["cash"] = cash
+	portfolio1.Valuations[portfolio1.MostRecentDate]["AAPL"] = AAPL
+	portfolio1JSON, err := json.Marshal(portfolio1)
+	assert.Nil(t, err)
+
+	portfolioIterator := mocks.StateQueryIterator{}
+	portfolioIterator.HasNextReturnsOnCall(0, true)
+	portfolioIterator.HasNextReturnsOnCall(1, false)
+	portfolioIterator.NextReturnsOnCall(0, &queryresult.KV{Value: portfolio1JSON}, nil)
+	chaincodeStub.GetQueryResultReturnsOnCall(0, &portfolioIterator, nil)
+
+	capitalAccountIterator := mocks.StateQueryIterator{}
+	capitalAccountIterator.HasNextReturnsOnCall(0, false)
+	chaincodeStub.GetQueryResultReturnsOnCall(1, &capitalAccountIterator, nil)
+
+	result, err := admin.StepFund(transactionContext, "testFundId")
+	assert.Nil(t, result)
+	assert.Equal(t, err, smartcontracterrors.NoCapitalAccountsFoundError)
 }

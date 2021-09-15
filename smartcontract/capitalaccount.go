@@ -173,16 +173,13 @@ func executeCapitalAccountActionQuery(ctx contractapi.TransactionContextInterfac
 	if err != nil {
 		return nil, err
 	}
-
 	defer resultsIterator.Close()
-
 	var capitalAccountActions []*types.CapitalAccountAction
 	for resultsIterator.HasNext() {
 		queryResult, err := resultsIterator.Next()
 		if err != nil {
 			return nil, err
 		}
-
 		var capitalAccountAction types.CapitalAccountAction
 		err = json.Unmarshal(queryResult.Value, &capitalAccountAction)
 		if err != nil {
@@ -190,6 +187,5 @@ func executeCapitalAccountActionQuery(ctx contractapi.TransactionContextInterfac
 		}
 		capitalAccountActions = append(capitalAccountActions, &capitalAccountAction)
 	}
-
 	return capitalAccountActions, nil
 }

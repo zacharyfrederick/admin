@@ -2,28 +2,33 @@ package types
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"github.com/zacharyfrederick/admin/types/doctypes"
 )
 
 type Fund struct {
-	DocType              string            `json:"docType"`
-	ID                   string            `json:"id"`
-	Name                 string            `json:"name"`
-	CurrentPeriod        int               `json:"currentPeriod"`
-	InceptionDate        string            `json:"inceptionDate"`
-	ClosingValues        map[string]string `json:"periodClosingValue"`
-	OpeningValues        map[string]string `json:"periodOpeningValue"`
-	FixedFees            map[string]string `json:"aggregateFixedFees"`
-	Deposits             map[string]string `json:"aggregateDeposits"`
-	NextInvestorNumber   int               `json:"nextInvestorNumber"`
-	PeriodUpdated        bool              `json:"periodUpdated"`
-	HasPerformanceFees   bool              `json:"hasPerformanceFees"`
-	PerformanceFeePeriod int               `json:"performanceFeePeriod"`
+	DocType              string         `json:"docType"`
+	ID                   string         `json:"id"`
+	Name                 string         `json:"name"`
+	CurrentPeriod        int            `json:"currentPeriod"`
+	InceptionDate        string         `json:"inceptionDate"`
+	ClosingValues        map[int]string `json:"periodClosingValue"`
+	OpeningValues        map[int]string `json:"periodOpeningValue"`
+	FixedFees            map[int]string `json:"aggregateFixedFees"`
+	Deposits             map[int]string `json:"aggregateDeposits"`
+	PerformanceFees      map[int]string `json:"performanceFees"`
+	NextInvestorNumber   int            `json:"nextInvestorNumber"`
+	PeriodUpdated        bool           `json:"periodUpdated"`
+	HasPerformanceFees   bool           `json:"hasPerformanceFees"`
+	PerformanceFeePeriod int            `json:"performanceFeePeriod"`
+	MidYearDeposits      []string       `json:"midYearDeposits"`
+	MidYearWithdrawals   []string       `json:"midYearWithdrawals"`
 }
 
+func (f *Fund) IsPerformanceFeePeriod() bool {
+	return f.CurrentPeriod%f.PerformanceFeePeriod == 0
+}
 func (f *Fund) IncrementInvestorNumber() {
 	f.NextInvestorNumber += 1
 }
@@ -32,12 +37,8 @@ func (f *Fund) IncrementCurrentPeriod() {
 	f.CurrentPeriod += 1
 }
 
-func (f *Fund) CurrentPeriodAsString() string {
-	return fmt.Sprintf("%d", f.CurrentPeriod)
-}
-
-func (f *Fund) PreviousPeriodAsString() string {
-	return fmt.Sprintf("%d", f.CurrentPeriod-1)
+func (f *Fund) PreviousPeriod() int {
+	return f.CurrentPeriod - 1
 }
 
 func (f *Fund) GetID() string {
@@ -69,22 +70,12 @@ func (f *Fund) SaveState(ctx contractapi.TransactionContextInterface) error {
 }
 
 func (f *Fund) BootstrapFundValues(totalDeposits string, openingFundValue string) {
-	currentPeriod := f.CurrentPeriodAsString()
-	f.Deposits[currentPeriod] = totalDeposits
-	f.OpeningValues[currentPeriod] = openingFundValue
+	f.Deposits[f.CurrentPeriod] = totalDeposits
+	f.OpeningValues[f.CurrentPeriod] = openingFundValue
 	f.CurrentPeriod += 1
 }
 
 func CreateDefaultFund(fundId string, name string, inceptionDate string) Fund {
-	closingValues := make(map[string]string)
-	closingValues["0"] = "0"
-	openingValues := make(map[string]string)
-	openingValues["0"] = "0"
-	fixedFees := make(map[string]string)
-	fixedFees["0"] = "0"
-	deposits := make(map[string]string)
-	deposits["0"] = "0"
-
 	fund := Fund{
 		DocType:              doctypes.DOCTYPE_FUND,
 		ID:                   fundId,
@@ -92,13 +83,15 @@ func CreateDefaultFund(fundId string, name string, inceptionDate string) Fund {
 		CurrentPeriod:        0,
 		InceptionDate:        inceptionDate,
 		NextInvestorNumber:   0,
-		ClosingValues:        closingValues,
-		OpeningValues:        openingValues,
-		FixedFees:            fixedFees,
-		Deposits:             deposits,
+		ClosingValues:        map[int]string{0: "0"},
+		OpeningValues:        map[int]string{0: "0"},
+		FixedFees:            map[int]string{0: "0"},
+		Deposits:             map[int]string{0: "0"},
+		PerformanceFees:      map[int]string{0: "0"},
 		PeriodUpdated:        false,
 		HasPerformanceFees:   true,
 		PerformanceFeePeriod: 12,
+		MidYearDeposits:      make([]string, 0),
 	}
 	return fund
 }

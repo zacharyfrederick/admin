@@ -102,7 +102,14 @@ func TestCreateCapitalAccount(t *testing.T) {
 	chaincodeStub.PutStateReturnsOnCall(0, nil)               //fund.SaveState(ctx)
 	chaincodeStub.PutStateReturnsOnCall(1, nil)               //capitalAccount.SaveState(ctx)
 	//run the test
-	err = admin.CreateCapitalAccount(transactionContext, "testAccountId", "testFundId", "testInvestorId")
+	err = admin.CreateCapitalAccount(
+		transactionContext,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
 	assert.Nil(t, err)
 }
 
@@ -110,7 +117,14 @@ func TestCreateCapitalAccountExistingId(t *testing.T) {
 	chaincodeStub, transactionContext := prepareTest()
 	admin := smartcontract.AdminContract{}
 	chaincodeStub.GetStateReturnsOnCall(0, []byte("fake data"), nil)
-	err := admin.CreateCapitalAccount(transactionContext, "testAccountId", "testFundId", "testInvestorId")
+	err := admin.CreateCapitalAccount(
+		transactionContext,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
 	assert.Equal(t, err, smartcontracterrors.IdAlreadyInUseError)
 }
 
@@ -119,7 +133,14 @@ func TestCreateCapitalAccountMissingFund(t *testing.T) {
 	admin := smartcontract.AdminContract{}
 	chaincodeStub.GetStateReturnsOnCall(0, nil, nil)
 	chaincodeStub.GetStateReturnsOnCall(1, nil, nil)
-	err := admin.CreateCapitalAccount(transactionContext, "testAccountId", "testFundId", "testInvestorId")
+	err := admin.CreateCapitalAccount(
+		transactionContext,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
 	assert.Equal(t, err, smartcontracterrors.FundNotFoundError)
 }
 
@@ -132,18 +153,42 @@ func TestCreateCapitalAccountMissingInvestor(t *testing.T) {
 	chaincodeStub.GetStateReturnsOnCall(0, nil, nil)
 	chaincodeStub.GetStateReturnsOnCall(1, fundJSON, nil)
 	chaincodeStub.GetStateReturnsOnCall(2, nil, nil)
-	err = admin.CreateCapitalAccount(transactionContext, "testAccountId", "testFundId", "testInvestorId")
+	err = admin.CreateCapitalAccount(
+		transactionContext,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
 	assert.Equal(t, err, smartcontracterrors.InvestorNotFoundError)
 }
 
 func TestCreateCapitalAccountAction(t *testing.T) {
 	chaincodeStub, transactionContext := prepareTest()
 	admin := smartcontract.AdminContract{}
-	capitalAccount := types.CreateDefaultCapitalAccount(0, 0, "testAccountId", "testFundId", "testInvestorId")
+	capitalAccount := types.CreateDefaultCapitalAccount(
+		0,
+		0,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
 	capitalAccountJSON, err := capitalAccount.ToJSON()
 	assert.Nil(t, err)
 	chaincodeStub.GetStateReturns(capitalAccountJSON, nil)
-	err = admin.CreateCapitalAccountAction(transactionContext, "testTransactionId", "testAccountId", "deposit", "100", false, "12-27-1996", 0)
+	err = admin.CreateCapitalAccountAction(
+		transactionContext,
+		"testTransactionId",
+		"testAccountId",
+		"deposit",
+		"100",
+		false,
+		"12-27-1996",
+		0,
+	)
 	assert.Nil(t, err)
 }
 
@@ -151,18 +196,44 @@ func TestCreateCapitalAccountActionMissingAccount(t *testing.T) {
 	chaincodeStub, transactionContext := prepareTest()
 	admin := smartcontract.AdminContract{}
 	chaincodeStub.GetStateReturns(nil, nil)
-	err := admin.CreateCapitalAccountAction(transactionContext, "testTransactionId", "testAccountId", "deposit", "100", false, "12-27-1996", 0)
+	err := admin.CreateCapitalAccountAction(
+		transactionContext,
+		"testTransactionId",
+		"testAccountId",
+		"deposit",
+		"100",
+		false,
+		"12-27-1996",
+		0,
+	)
 	assert.Equal(t, err, smartcontracterrors.CapitalAccountNotFoundError)
 }
 
 func TestCreateCapitalAccountActionInvalidType(t *testing.T) {
 	chaincodeStub, transactionContext := prepareTest()
 	admin := smartcontract.AdminContract{}
-	capitalAccount := types.CreateDefaultCapitalAccount(0, 0, "testAccountId", "testFundId", "testInvestorId")
+	capitalAccount := types.CreateDefaultCapitalAccount(
+		0,
+		0,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
 	capitalAccountJSON, err := capitalAccount.ToJSON()
 	assert.Nil(t, err)
 	chaincodeStub.GetStateReturns(capitalAccountJSON, nil)
-	err = admin.CreateCapitalAccountAction(transactionContext, "testTransactionId", "testAccountId", "fake action", "100", false, "12-27-1996", 0)
+	err = admin.CreateCapitalAccountAction(
+		transactionContext,
+		"testTransactionId",
+		"testAccountId",
+		"fake action",
+		"100",
+		false,
+		"12-27-1996",
+		0,
+	)
 	assert.Equal(t, err, smartcontracterrors.InvalidCapitalAccountActionTypeError)
 }
 
@@ -174,7 +245,12 @@ func TestCreatePortfolio(t *testing.T) {
 	assert.Nil(t, err)
 	chaincodeStub.GetStateReturnsOnCall(0, nil, nil)
 	chaincodeStub.GetStateReturnsOnCall(1, fundJSON, nil)
-	err = admin.CreatePortfolio(transactionContext, "testPortfolioId", "testFundId", "testPortfolio")
+	err = admin.CreatePortfolio(
+		transactionContext,
+		"testPortfolioId",
+		"testFundId",
+		"testPortfolio",
+	)
 	assert.Nil(t, err)
 }
 
@@ -183,7 +259,12 @@ func TestCreatePortfolioMissingFund(t *testing.T) {
 	admin := smartcontract.AdminContract{}
 	chaincodeStub.GetStateReturnsOnCall(0, nil, nil)
 	chaincodeStub.GetStateReturnsOnCall(1, nil, nil)
-	err := admin.CreatePortfolio(transactionContext, "testPortfolioId", "testFundId", "testPortfolio")
+	err := admin.CreatePortfolio(
+		transactionContext,
+		"testPortfolioId",
+		"testFundId",
+		"testPortfolio",
+	)
 	assert.Equal(t, err, smartcontracterrors.FundNotFoundError)
 }
 
@@ -194,7 +275,18 @@ func TestCreatePortfolioAction(t *testing.T) {
 	portfolioJSON, err := portfolio.ToJSON()
 	assert.Nil(t, err)
 	chaincodeStub.GetStateReturnsOnCall(0, portfolioJSON, nil)
-	err = admin.CreatePortfolioAction(transactionContext, "testActionId", "testPortfolioId", "buy", "12-27-1996", 0, "AMZN", "testCusip", "100", "USD")
+	err = admin.CreatePortfolioAction(
+		transactionContext,
+		"testActionId",
+		"testPortfolioId",
+		"buy",
+		"12-27-1996",
+		0,
+		"AMZN",
+		"testCusip",
+		"100",
+		"USD",
+	)
 	assert.Nil(t, err)
 }
 
@@ -202,7 +294,18 @@ func TestCreatePortfolioActionMissingPortfolio(t *testing.T) {
 	chaincodeStub, transactionContext := prepareTest()
 	admin := smartcontract.AdminContract{}
 	chaincodeStub.GetStateReturns(nil, nil)
-	err := admin.CreatePortfolioAction(transactionContext, "testActionId", "testPortfolioId", "buy", "12-27-1996", 0, "AMZN", "testCusip", "100", "USD")
+	err := admin.CreatePortfolioAction(
+		transactionContext,
+		"testActionId",
+		"testPortfolioId",
+		"buy",
+		"12-27-1996",
+		0,
+		"AMZN",
+		"testCusip",
+		"100",
+		"USD",
+	)
 	assert.Equal(t, err, smartcontracterrors.PortfolioNotFoundError)
 }
 
@@ -213,7 +316,18 @@ func TestCreatePortfolioActionInvalidAction(t *testing.T) {
 	portfolioJSON, err := portfolio.ToJSON()
 	assert.Nil(t, err)
 	chaincodeStub.GetStateReturnsOnCall(0, portfolioJSON, nil)
-	err = admin.CreatePortfolioAction(transactionContext, "testActionId", "testPortfolioId", "fake action", "12-27-1996", 0, "AMZN", "testCusip", "100", "USD")
+	err = admin.CreatePortfolioAction(
+		transactionContext,
+		"testActionId",
+		"testPortfolioId",
+		"fake action",
+		"12-27-1996",
+		0,
+		"AMZN",
+		"testCusip",
+		"100",
+		"USD",
+	)
 	assert.Equal(t, err, smartcontracterrors.InvalidPortfolioActionTypeError)
 }
 
@@ -221,11 +335,27 @@ func TestBootstrapCapitalAccount(t *testing.T) {
 	chaincodeStub, transactionContext := prepareTest()
 	admin := smartcontract.AdminContract{}
 
-	firstDeposit := types.CreateDefaultCapitalAccountAction("testDeposit1", "testAccountId", "buy", "10000", false, "12-27-1996", 0)
+	firstDeposit := types.CreateDefaultCapitalAccountAction(
+		"testDeposit1",
+		"testAccountId",
+		"buy",
+		"10000",
+		false,
+		"12-27-1996",
+		0,
+	)
 	firstDepositJSON, err := json.Marshal(firstDeposit)
 	assert.Nil(t, err)
 
-	secondDeposit := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId", "buy", "3000", false, "12-27-1996", 0)
+	secondDeposit := types.CreateDefaultCapitalAccountAction(
+		"testDeposit2",
+		"testAccountId",
+		"buy",
+		"3000",
+		false,
+		"12-27-1996",
+		0,
+	)
 	secondDepositJSON, err := json.Marshal(secondDeposit)
 	assert.Nil(t, err)
 
@@ -247,13 +377,21 @@ func TestBootstrapCapitalAccount(t *testing.T) {
 	chaincodeStub.GetQueryResultReturnsOnCall(0, &depositIterator, nil)
 	chaincodeStub.GetQueryResultReturnsOnCall(1, &withdrawalIterator, nil)
 
-	capitalAccount := types.CreateDefaultCapitalAccount(0, 0, "testAccountId", "testFundId", "testInvestorId")
+	capitalAccount := types.CreateDefaultCapitalAccount(
+		0,
+		0,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
 
 	err = admin.BootstrapCapitalAccount(transactionContext, &capitalAccount)
 
 	currentPeriod := capitalAccount.CurrentPeriod
-	deposits := capitalAccount.Deposits["0"]
-	openingValue := capitalAccount.OpeningValue["0"]
+	deposits := capitalAccount.Deposits[0]
+	openingValue := capitalAccount.OpeningValue[0]
 
 	assert.Equal(t, currentPeriod, 1)
 	assert.Equal(t, deposits, "13000")
@@ -263,7 +401,15 @@ func TestBootstrapCapitalAccount(t *testing.T) {
 func TestBootstrapCapitalAccountInvalidPeriod(t *testing.T) {
 	_, transactionContext := prepareTest()
 	admin := smartcontract.AdminContract{}
-	capitalAccount := types.CreateDefaultCapitalAccount(0, 1, "testAccountId", "testFundId", "testInvestorId")
+	capitalAccount := types.CreateDefaultCapitalAccount(
+		0,
+		1,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
 	err := admin.BootstrapCapitalAccount(transactionContext, &capitalAccount)
 	assert.Equal(t, err, smartcontracterrors.CannotBootstrapCapitalAccountError)
 }
@@ -272,11 +418,27 @@ func TestBootstrapCapitalAccountWithWithdrawals(t *testing.T) {
 	chaincodeStub, transactionContext := prepareTest()
 	admin := smartcontract.AdminContract{}
 
-	firstDeposit := types.CreateDefaultCapitalAccountAction("testDeposit1", "testAccountId", "deposit", "10000", false, "12-27-1996", 0)
+	firstDeposit := types.CreateDefaultCapitalAccountAction(
+		"testDeposit1",
+		"testAccountId",
+		"deposit",
+		"10000",
+		false,
+		"12-27-1996",
+		0,
+	)
 	firstDepositJSON, err := json.Marshal(firstDeposit)
 	assert.Nil(t, err)
 
-	secondDeposit := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId", "deposit", "3000", false, "12-27-1996", 0)
+	secondDeposit := types.CreateDefaultCapitalAccountAction(
+		"testDeposit2",
+		"testAccountId",
+		"deposit",
+		"3000",
+		false,
+		"12-27-1996",
+		0,
+	)
 	secondDepositJSON, err := json.Marshal(secondDeposit)
 	assert.Nil(t, err)
 
@@ -291,7 +453,15 @@ func TestBootstrapCapitalAccountWithWithdrawals(t *testing.T) {
 		Value: secondDepositJSON,
 	}, nil)
 
-	withdrawal := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId", "withdrawal", "3000", false, "12-27-1996", 0)
+	withdrawal := types.CreateDefaultCapitalAccountAction(
+		"testDeposit2",
+		"testAccountId",
+		"withdrawal",
+		"3000",
+		false,
+		"12-27-1996",
+		0,
+	)
 	withdrawalJSON, err := json.Marshal(withdrawal)
 
 	withdrawalIterator := mocks.StateQueryIterator{}
@@ -303,13 +473,21 @@ func TestBootstrapCapitalAccountWithWithdrawals(t *testing.T) {
 	chaincodeStub.GetQueryResultReturnsOnCall(0, &depositIterator, nil)
 	chaincodeStub.GetQueryResultReturnsOnCall(1, &withdrawalIterator, nil)
 
-	capitalAccount := types.CreateDefaultCapitalAccount(0, 0, "testAccountId", "testFundId", "testInvestorId")
+	capitalAccount := types.CreateDefaultCapitalAccount(
+		0,
+		0,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
 
 	err = admin.BootstrapCapitalAccount(transactionContext, &capitalAccount)
 
 	currentPeriod := capitalAccount.CurrentPeriod
-	deposits := capitalAccount.Deposits["0"]
-	openingValue := capitalAccount.OpeningValue["0"]
+	deposits := capitalAccount.Deposits[0]
+	openingValue := capitalAccount.OpeningValue[0]
 
 	assert.Equal(t, currentPeriod, 1)
 	assert.Equal(t, deposits, "10000")
@@ -320,11 +498,27 @@ func TestBootstrapCapitalAccountInvalidWithdrawals(t *testing.T) {
 	chaincodeStub, transactionContext := prepareTest()
 	admin := smartcontract.AdminContract{}
 
-	firstDeposit := types.CreateDefaultCapitalAccountAction("testDeposit1", "testAccountId", "deposit", "10000", false, "12-27-1996", 0)
+	firstDeposit := types.CreateDefaultCapitalAccountAction(
+		"testDeposit1",
+		"testAccountId",
+		"deposit",
+		"10000",
+		false,
+		"12-27-1996",
+		0,
+	)
 	firstDepositJSON, err := json.Marshal(firstDeposit)
 	assert.Nil(t, err)
 
-	secondDeposit := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId", "deposit", "3000", false, "12-27-1996", 0)
+	secondDeposit := types.CreateDefaultCapitalAccountAction(
+		"testDeposit2",
+		"testAccountId",
+		"deposit",
+		"3000",
+		false,
+		"12-27-1996",
+		0,
+	)
 	secondDepositJSON, err := json.Marshal(secondDeposit)
 	assert.Nil(t, err)
 
@@ -339,7 +533,15 @@ func TestBootstrapCapitalAccountInvalidWithdrawals(t *testing.T) {
 		Value: secondDepositJSON,
 	}, nil)
 
-	withdrawal := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId", "withdrawal", "14000", false, "12-27-1996", 0)
+	withdrawal := types.CreateDefaultCapitalAccountAction(
+		"testDeposit2",
+		"testAccountId",
+		"withdrawal",
+		"14000",
+		false,
+		"12-27-1996",
+		0,
+	)
 	withdrawalJSON, err := json.Marshal(withdrawal)
 
 	withdrawalIterator := mocks.StateQueryIterator{}
@@ -349,7 +551,15 @@ func TestBootstrapCapitalAccountInvalidWithdrawals(t *testing.T) {
 	}, nil)
 	chaincodeStub.GetQueryResultReturnsOnCall(0, &depositIterator, nil)
 	chaincodeStub.GetQueryResultReturnsOnCall(1, &withdrawalIterator, nil)
-	capitalAccount := types.CreateDefaultCapitalAccount(0, 0, "testAccountId", "testFundId", "testInvestorId")
+	capitalAccount := types.CreateDefaultCapitalAccount(
+		0,
+		0,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
 	err = admin.BootstrapCapitalAccount(transactionContext, &capitalAccount)
 	assert.Equal(t, err, smartcontracterrors.NegativeCapitalAccountBalanceError)
 }
@@ -365,10 +575,26 @@ func TestBootstrapFund(t *testing.T) {
 	chaincodeStub.GetStateReturnsOnCall(0, fundJSON, nil)
 
 	//query capital accounts
-	capitalAccount1 := types.CreateDefaultCapitalAccount(0, 0, "testAccountId1", "testFundId", "testInvestorId1")
+	capitalAccount1 := types.CreateDefaultCapitalAccount(
+		0,
+		0,
+		"testAccountId1",
+		"testFundId",
+		"testInvestorId1",
+		false,
+		"0",
+	)
 	capitalAccount1JSON, err := json.Marshal(capitalAccount1)
 	assert.Nil(t, err)
-	capitalAccount2 := types.CreateDefaultCapitalAccount(0, 0, "testAccountId2", "testFundId", "testInvestorId2")
+	capitalAccount2 := types.CreateDefaultCapitalAccount(
+		1,
+		0,
+		"testAccountId2",
+		"testFundId",
+		"testInvestorId2",
+		false,
+		"0",
+	)
 	capitalAccount2JSON, err := json.Marshal(capitalAccount2)
 	assert.Nil(t, err)
 	capitalAccountIterator := mocks.StateQueryIterator{}
@@ -380,7 +606,15 @@ func TestBootstrapFund(t *testing.T) {
 	chaincodeStub.GetQueryResultReturnsOnCall(0, &capitalAccountIterator, nil)
 
 	//capital account 1 bootstrap
-	firstDeposit := types.CreateDefaultCapitalAccountAction("testDeposit1", "testAccountId1", "deposit", "10000", false, "12-27-1996", 0)
+	firstDeposit := types.CreateDefaultCapitalAccountAction(
+		"testDeposit1",
+		"testAccountId1",
+		"deposit",
+		"10000",
+		false,
+		"12-27-1996",
+		0,
+	)
 	firstDepositJSON, err := json.Marshal(firstDeposit)
 	assert.Nil(t, err)
 	depositIterator1 := mocks.StateQueryIterator{}
@@ -393,7 +627,15 @@ func TestBootstrapFund(t *testing.T) {
 	chaincodeStub.GetQueryResultReturnsOnCall(2, &withdrawalIterator1, nil)
 
 	//capital account 2 bootstrap
-	secondDeposit := types.CreateDefaultCapitalAccountAction("testDeposit2", "testAccountId2", "deposit", "90000", false, "12-27-1996", 0)
+	secondDeposit := types.CreateDefaultCapitalAccountAction(
+		"testDeposit2",
+		"testAccountId2",
+		"deposit",
+		"90000",
+		false,
+		"12-27-1996",
+		0,
+	)
 	secondDepositJSON, err := json.Marshal(secondDeposit)
 	assert.Nil(t, err)
 	depositIterator2 := mocks.StateQueryIterator{}
@@ -409,8 +651,8 @@ func TestBootstrapFund(t *testing.T) {
 	resultFund, err := admin.BootstrapFund(transactionContext, "testId")
 	assert.Nil(t, err)
 
-	openingValue := resultFund.OpeningValues["0"]
-	deposits := resultFund.OpeningValues["0"]
+	openingValue := resultFund.OpeningValues[0]
+	deposits := resultFund.OpeningValues[0]
 
 	assert.Equal(t, openingValue, "100000")
 	assert.Equal(t, deposits, "100000")
@@ -513,15 +755,31 @@ func TestStepFund(t *testing.T) {
 	chaincodeStub.GetQueryResultReturnsOnCall(0, &portfolioIterator, nil)
 
 	//capital accounts
-	capitalAccount1 := types.CreateDefaultCapitalAccount(0, 0, "testAccountId1", "testFundId", "testInvestorId1")
+	capitalAccount1 := types.CreateDefaultCapitalAccount(
+		0,
+		0,
+		"testAccountId1",
+		"testFundId",
+		"testInvestorId1",
+		false,
+		"0",
+	)
 	capitalAccount1.IncrementCurrentPeriod()
-	capitalAccount1.OwnershipPercentage["0"] = "0.1" //set the previous periods ownership
+	capitalAccount1.OwnershipPercentage[0] = "0.1" //set the previous periods ownership
 	capitalAccount1JSON, err := json.Marshal(capitalAccount1)
 	assert.Nil(t, err)
 
-	capitalAccount2 := types.CreateDefaultCapitalAccount(0, 0, "testAccountId2", "testFundId", "testInvestorId2")
+	capitalAccount2 := types.CreateDefaultCapitalAccount(
+		0,
+		0,
+		"testAccountId2",
+		"testFundId",
+		"testInvestorId2",
+		false,
+		"0",
+	)
 	capitalAccount2.IncrementCurrentPeriod()
-	capitalAccount2.OwnershipPercentage["0"] = "0.9"
+	capitalAccount2.OwnershipPercentage[0] = "0.9"
 	capitalAccount2.Number = 1
 	capitalAccount2JSON, err := json.Marshal(capitalAccount2)
 	assert.Nil(t, err)
@@ -538,7 +796,15 @@ func TestStepFund(t *testing.T) {
 	depositsIterator.HasNextReturnsOnCall(0, false) //capital account 1
 	depositsIterator.HasNextReturnsOnCall(1, true)  //capital account 2
 	depositsIterator.HasNextReturnsOnCall(2, false) //capital account 2
-	firstDeposit := types.CreateDefaultCapitalAccountAction("testDeposit1", "testAccountId1", "deposit", "10000", false, "12-27-1996", 1)
+	firstDeposit := types.CreateDefaultCapitalAccountAction(
+		"testDeposit1",
+		"testAccountId1",
+		"deposit",
+		"10000",
+		false,
+		"12-27-1996",
+		1,
+	)
 	firstDepositJSON, err := json.Marshal(firstDeposit)
 	assert.Nil(t, err)
 	depositsIterator.NextReturnsOnCall(0, &queryresult.KV{Value: firstDepositJSON}, nil)
@@ -553,10 +819,10 @@ func TestStepFund(t *testing.T) {
 	assert.Nil(t, err)
 
 	resultFund := result.Fund
-	resultClosingValue := resultFund.ClosingValues[resultFund.PreviousPeriodAsString()]
-	resultOpeningValue := resultFund.OpeningValues[resultFund.PreviousPeriodAsString()]
-	resultFixedFees := resultFund.FixedFees[resultFund.PreviousPeriodAsString()]
-	resultDeposits := resultFund.Deposits[resultFund.PreviousPeriodAsString()]
+	resultClosingValue := resultFund.ClosingValues[resultFund.PreviousPeriod()]
+	resultOpeningValue := resultFund.OpeningValues[resultFund.PreviousPeriod()]
+	resultFixedFees := resultFund.FixedFees[resultFund.PreviousPeriod()]
+	resultDeposits := resultFund.Deposits[resultFund.PreviousPeriod()]
 	assert.Equal(t, resultClosingValue, "144664")
 	assert.Equal(t, resultOpeningValue, "154664")
 	assert.Equal(t, resultFixedFees, "2603.952")
@@ -610,4 +876,89 @@ func TestStepFundNoCapitalAccounts(t *testing.T) {
 	result, err := admin.StepFund(transactionContext, "testFundId")
 	assert.Nil(t, result)
 	assert.Equal(t, err, smartcontracterrors.NoCapitalAccountsFoundError)
+}
+
+func TestCreateCapitalAccountNonZeroPeriod(t *testing.T) {
+	testPeriod := 10
+	capitalAccount := types.CreateDefaultCapitalAccount(
+		0,
+		testPeriod,
+		"testId",
+		"testFundId",
+		"testInvestorId",
+		false,
+		"0",
+	)
+	for i := 0; i < testPeriod; i++ {
+		assert.Equal(t, capitalAccount.ClosingValue[i], "0")
+		assert.Equal(t, capitalAccount.OpeningValue[i], "0")
+		assert.Equal(t, capitalAccount.FixedFees[i], "0")
+		assert.Equal(t, capitalAccount.PerformanceFees[i], "0")
+		assert.Equal(t, capitalAccount.Deposits[i], "0")
+		assert.Equal(t, capitalAccount.OwnershipPercentage[i], "0")
+	}
+}
+
+func TestCreateCapitalAccountActionMidYearDeposit(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+	capitalAccount := types.CreateDefaultCapitalAccount(
+		0,
+		0,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		true,
+		"0",
+	)
+	capitalAccountJSON, err := capitalAccount.ToJSON()
+	assert.Nil(t, err)
+	fund := types.CreateDefaultFund("testFundId", "testFund", "12-27-1996")
+	fundJSON, err := fund.ToJSON()
+	assert.Nil(t, err)
+	chaincodeStub.GetStateReturnsOnCall(0, capitalAccountJSON, nil)
+	chaincodeStub.GetStateReturnsOnCall(1, fundJSON, nil)
+	err = admin.CreateCapitalAccountAction(
+		transactionContext,
+		"testTransactionId",
+		"testAccountId",
+		"deposit",
+		"100",
+		false,
+		"12-27-1996",
+		3,
+	)
+	assert.Equal(t, err, smartcontracterrors.MidYearDepositError)
+}
+
+func TestCreateCapitalAccountActionEndYearDeposit(t *testing.T) {
+	chaincodeStub, transactionContext := prepareTest()
+	admin := smartcontract.AdminContract{}
+	capitalAccount := types.CreateDefaultCapitalAccount(
+		0,
+		0,
+		"testAccountId",
+		"testFundId",
+		"testInvestorId",
+		true,
+		"0",
+	)
+	capitalAccountJSON, err := capitalAccount.ToJSON()
+	assert.Nil(t, err)
+	fund := types.CreateDefaultFund("testFundId", "testFund", "12-27-1996")
+	fundJSON, err := fund.ToJSON()
+	assert.Nil(t, err)
+	chaincodeStub.GetStateReturnsOnCall(0, capitalAccountJSON, nil)
+	chaincodeStub.GetStateReturnsOnCall(1, fundJSON, nil)
+	err = admin.CreateCapitalAccountAction(
+		transactionContext,
+		"testTransactionId",
+		"testAccountId",
+		"deposit",
+		"100",
+		false,
+		"12-27-1996",
+		12,
+	)
+	assert.Nil(t, err)
 }

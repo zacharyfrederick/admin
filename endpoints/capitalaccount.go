@@ -15,6 +15,7 @@ func (w *EndpointWrapper) PostCapitalAccountEndpoint(c *gin.Context) {
 
 	err := c.BindJSON(&createCapitalAccountRequest)
 	if err != nil {
+		fmt.Printf("%v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing required parameters"})
 		return
 	}
@@ -26,8 +27,8 @@ func (w *EndpointWrapper) PostCapitalAccountEndpoint(c *gin.Context) {
 	}
 
 	capitalAccountId := uuid.NewV4().String()
-
-	result, err := w.Contract.SubmitTransaction("CreateCapitalAccount", capitalAccountId, createCapitalAccountRequest.Fund, createCapitalAccountRequest.Investor)
+	hasPerformanceFees := fmt.Sprintf("%t", createCapitalAccountRequest.HasPerformanceFees)
+	result, err := w.Contract.SubmitTransaction("CreateCapitalAccount", capitalAccountId, createCapitalAccountRequest.Fund, createCapitalAccountRequest.Investor, hasPerformanceFees, createCapitalAccountRequest.PerformanceRate)
 	if err != nil {
 		errorString := fmt.Sprintf("error submitting request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": errorString})

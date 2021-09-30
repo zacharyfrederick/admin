@@ -1,13 +1,16 @@
 package smartcontract
 
 import (
-	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"github.com/zacharyfrederick/admin/types"
 	smartcontracterrors "github.com/zacharyfrederick/admin/types/errors"
 	"github.com/zacharyfrederick/admin/utils"
 )
 
-func (s *AdminContract) CreateInvestor(ctx contractapi.TransactionContextInterface, investorId string, name string) error {
+func (s *AdminContract) CreateInvestor(
+	ctx SmartContractContext,
+	investorId string,
+	name string,
+) error {
 	objExists, err := utils.AssetExists(ctx, investorId)
 	if err != nil {
 		return smartcontracterrors.ReadingWorldStateError
@@ -19,7 +22,10 @@ func (s *AdminContract) CreateInvestor(ctx contractapi.TransactionContextInterfa
 	return SaveState(ctx, &investor)
 }
 
-func (s *AdminContract) QueryInvestorById(ctx contractapi.TransactionContextInterface, investorId string) (*types.Investor, error) {
+func (s *AdminContract) QueryInvestorById(
+	ctx SmartContractContext,
+	investorId string,
+) (*types.Investor, error) {
 	investorJson, err := ctx.GetStub().GetState(investorId)
 	if err != nil {
 		return nil, smartcontracterrors.ReadingWorldStateError

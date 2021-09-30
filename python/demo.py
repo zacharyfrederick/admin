@@ -7,7 +7,7 @@ from admin_client.portfolio_action import PortfolioAction
 
 import random
 
-N_INVESTORS = 50
+N_INVESTORS = 2
 
 def create_investors():
     basename = "test_investor_{}"
@@ -27,7 +27,7 @@ def create_fund():
 def create_capital_accounts(fund, investors):
     accounts = {}
     for investor_id, _ in investors.items():
-        new_account = CapitalAccount.create_capital_account(fund.id, investor_id)
+        new_account = CapitalAccount.create_capital_account(fund.id, investor_id, True, "0.2")
         assert new_account != None, "a capital account could not be created"
         accounts[new_account.id] = new_account
     return accounts

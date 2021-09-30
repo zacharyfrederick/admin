@@ -5,14 +5,18 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"github.com/shopspring/decimal"
 	"github.com/zacharyfrederick/admin/types"
 	smartcontracterrors "github.com/zacharyfrederick/admin/types/errors"
 	"github.com/zacharyfrederick/admin/utils"
 )
 
-func (s *AdminContract) CreatePortfolio(ctx contractapi.TransactionContextInterface, portfolioId string, fundId string, name string) error {
+func (s *AdminContract) CreatePortfolio(
+	ctx SmartContractContext,
+	portfolioId string,
+	fundId string,
+	name string,
+) error {
 	idInUse, err := utils.AssetExists(ctx, portfolioId)
 	if err != nil {
 		return smartcontracterrors.ReadingWorldStateError
@@ -31,7 +35,18 @@ func (s *AdminContract) CreatePortfolio(ctx contractapi.TransactionContextInterf
 	return SaveState(ctx, &portfolio)
 }
 
-func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContextInterface, actionId string, portfolioId string, type_ string, date string, period int, name string, cusip string, amount string, currency string) error {
+func (s *AdminContract) CreatePortfolioAction(
+	ctx SmartContractContext,
+	actionId string,
+	portfolioId string,
+	type_ string,
+	date string,
+	period int,
+	name string,
+	cusip string,
+	amount string,
+	currency string,
+) error {
 	if type_ != "buy" && type_ != "sell" {
 		return smartcontracterrors.InvalidPortfolioActionTypeError
 	}
@@ -43,7 +58,14 @@ func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContext
 		return smartcontracterrors.PortfolioNotFoundError
 	}
 	asset := types.CreateAsset(name, cusip, amount, currency)
-	portfolioAction := types.CreateDefaultPortfolioAction(portfolioId, type_, date, actionId, asset, period)
+	portfolioAction := types.CreateDefaultPortfolioAction(
+		portfolioId,
+		type_,
+		date,
+		actionId,
+		asset,
+		period,
+	)
 	err = executePortfolioAction(portfolio, &portfolioAction)
 	if err != nil {
 		return err
@@ -55,7 +77,13 @@ func (s *AdminContract) CreatePortfolioAction(ctx contractapi.TransactionContext
 	return SaveState(ctx, &portfolioAction)
 }
 
-func (s *AdminContract) UpdatePortfolioValuation(ctx contractapi.TransactionContextInterface, portfolioId string, date string, name string, price string) error {
+func (s *AdminContract) UpdatePortfolioValuation(
+	ctx SmartContractContext,
+	portfolioId string,
+	date string,
+	name string,
+	price string,
+) error {
 	portfolio, err := s.QueryPortfolioById(ctx, portfolioId)
 	if err != nil {
 		return err
@@ -141,7 +169,10 @@ func buySecurityForPortfolio(portfolio *types.Portfolio, action *types.Portfolio
 	return nil
 }
 
-func getMostRecentAssetsForPortfolio(portfolio *types.Portfolio, date string) (types.AssetMap, error) {
+func getMostRecentAssetsForPortfolio(
+	portfolio *types.Portfolio,
+	date string,
+) (types.AssetMap, error) {
 	currentAssets, ok := portfolio.Assets[date]
 	if ok {
 		return currentAssets, nil
@@ -225,12 +256,22 @@ func sellSecurityForPortfolio(portfolio *types.Portfolio, action *types.Portfoli
 	return nil
 }
 
-func (s *AdminContract) QueryPortfoliosByFund(ctx contractapi.TransactionContextInterface, fundId string) ([]*types.Portfolio, error) {
+func (s *AdminContract) QueryPortfoliosByFund(
+	ctx SmartContractContext,
+	fundId string,
+) ([]*types.Portfolio, error) {
+	return queryPortfoliosByFund(ctx, fundId)
+}
+
+func queryPortfoliosByFund(ctx SmartContractContext, fundId string) ([]*types.Portfolio, error) {
 	queryString := fmt.Sprintf(`{"selector":{"docType": "portfolio", "fund": "%s"}}`, fundId)
 	return executePortfolioQuery(ctx, queryString)
 }
 
-func (s *AdminContract) QueryPortfolioById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.Portfolio, error) {
+func (s *AdminContract) QueryPortfolioById(
+	ctx SmartContractContext,
+	capitalAccountId string,
+) (*types.Portfolio, error) {
 	data, err := ctx.GetStub().GetState(capitalAccountId)
 	if err != nil {
 		return nil, err
@@ -246,7 +287,10 @@ func (s *AdminContract) QueryPortfolioById(ctx contractapi.TransactionContextInt
 	return &portfolio, nil
 }
 
-func (s *AdminContract) QueryPortfolioActionById(ctx contractapi.TransactionContextInterface, capitalAccountId string) (*types.PortfolioAction, error) {
+func (s *AdminContract) QueryPortfolioActionById(
+	ctx SmartContractContext,
+	capitalAccountId string,
+) (*types.PortfolioAction, error) {
 	data, err := ctx.GetStub().GetState(capitalAccountId)
 	if err != nil {
 		return nil, err
@@ -262,7 +306,10 @@ func (s *AdminContract) QueryPortfolioActionById(ctx contractapi.TransactionCont
 	return &portfolioAction, nil
 }
 
-func executePortfolioQuery(ctx contractapi.TransactionContextInterface, queryString string) ([]*types.Portfolio, error) {
+func executePortfolioQuery(
+	ctx SmartContractContext,
+	queryString string,
+) ([]*types.Portfolio, error) {
 	resultsIterator, err := ctx.GetStub().GetQueryResult(queryString)
 	if err != nil {
 		return nil, err

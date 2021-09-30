@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"github.com/shopspring/decimal"
@@ -10,20 +9,36 @@ import (
 )
 
 type CapitalAccount struct {
-	DocType             string            `json:"docType"`
-	ID                  string            `json:"id"`
-	Fund                string            `json:"fund"`
-	Investor            string            `json:"investor"`
-	Number              int               `json:"number"`
-	CurrentPeriod       int               `json:"currentPeriod"`
-	ClosingValue        map[string]string `json:"periodClosingValue"`
-	OpeningValue        map[string]string `json:"periodOpeningValue"`
-	FixedFees           map[string]string `json:"fixedFees"`
-	Deposits            map[string]string `json:"deposits"`
-	OwnershipPercentage map[string]string `json:"ownershipPercentage"`
-	HighWaterMark       HighWaterMark     `json:"highWaterMark"`
-	PeriodUpdated       bool              `json:"periodUpdated"`
-	FixedFee            string            `json:"fixedFee"`
+	DocType             string         `json:"docType"`
+	ID                  string         `json:"id"`
+	Fund                string         `json:"fund"`
+	Investor            string         `json:"investor"`
+	Number              int            `json:"number"`
+	CurrentPeriod       int            `json:"currentPeriod"`
+	ClosingValue        map[int]string `json:"periodClosingValue"`
+	OpeningValue        map[int]string `json:"periodOpeningValue"`
+	FixedFees           map[int]string `json:"fixedFees"`
+	Deposits            map[int]string `json:"deposits"`
+	OwnershipPercentage map[int]string `json:"ownershipPercentage"`
+	PerformanceFees     map[int]string `json:"performanceFees"`
+	HighWaterMark       HighWaterMark  `json:"highWaterMark"`
+	PeriodUpdated       bool           `json:"periodUpdated"`
+	FixedFee            string         `json:"fixedFee"`
+	HasPerformanceFees  bool           `json:"hasPerformanceFees"`
+	PerformanceFeeRate  string         `json:"performanceFeeRate"`
+}
+
+func (c *CapitalAccount) UpdateClosingValue(fundClosingValue decimal.Decimal) {
+	ownershipPercentage := decimal.RequireFromString(c.OwnershipPercentage[c.PreviousPeriod()])
+	c.SetClosingValue(ownershipPercentage.Mul(fundClosingValue).String())
+}
+
+func (c *CapitalAccount) SetClosingValue(closingValue string) {
+	c.ClosingValue[c.CurrentPeriod] = closingValue
+}
+
+func (c *CapitalAccount) UpdateOpeningValue(openingValue string) {
+	c.OpeningValue[c.CurrentPeriod] = openingValue
 }
 
 func (f *CapitalAccount) GetID() string {
@@ -54,18 +69,13 @@ func (c *CapitalAccount) SaveState(ctx contractapi.TransactionContextInterface) 
 	return ctx.GetStub().PutState(c.ID, capitalAccountJSON)
 }
 
-func (c *CapitalAccount) CurrentPeriodAsString() string {
-	return fmt.Sprintf("%d", c.CurrentPeriod)
-}
-
-func (c *CapitalAccount) PreviousPeriodAsString() string {
-	return fmt.Sprintf("%d", c.CurrentPeriod-1)
+func (c *CapitalAccount) PreviousPeriod() int {
+	return c.CurrentPeriod - 1
 }
 
 func (c *CapitalAccount) BootstrapAccountValues(openingValue string) {
-	currentPeriod := c.CurrentPeriodAsString()
-	c.Deposits[currentPeriod] = openingValue
-	c.OpeningValue[currentPeriod] = openingValue
+	c.Deposits[c.CurrentPeriod] = openingValue
+	c.OpeningValue[c.CurrentPeriod] = openingValue
 	c.CurrentPeriod += 1
 }
 
@@ -73,17 +83,15 @@ func (c *CapitalAccount) IncrementCurrentPeriod() {
 	c.CurrentPeriod += 1
 }
 
-func CreateDefaultCapitalAccount(nextInvestorNumber int, currentPeriod int, accountId string, fundId string, investorId string) CapitalAccount {
-	closingValueMap := make(map[string]string)
-	closingValueMap["0"] = decimal.Zero.String()
-	openingValueMap := make(map[string]string)
-	openingValueMap["0"] = decimal.Zero.String()
-	fixedFeesMap := make(map[string]string)
-	fixedFeesMap["0"] = decimal.Zero.String()
-	depositMap := make(map[string]string)
-	depositMap["0"] = decimal.Zero.String()
-	ownershipPercentageMap := make(map[string]string)
-	ownershipPercentageMap["0"] = decimal.Zero.String()
+func CreateDefaultCapitalAccount(
+	nextInvestorNumber int,
+	currentPeriod int,
+	accountId string,
+	fundId string,
+	investorId string,
+	hasPerformanceFees bool,
+	performanceFeeRate string,
+) CapitalAccount {
 	capitalAccount := CapitalAccount{
 		DocType:             doctypes.DOCTYPE_CAPITALACCOUNT,
 		ID:                  accountId,
@@ -91,15 +99,32 @@ func CreateDefaultCapitalAccount(nextInvestorNumber int, currentPeriod int, acco
 		Investor:            investorId,
 		Number:              nextInvestorNumber,
 		CurrentPeriod:       currentPeriod,
-		ClosingValue:        closingValueMap,
-		OpeningValue:        openingValueMap,
-		FixedFees:           fixedFeesMap,
-		Deposits:            depositMap,
-		OwnershipPercentage: ownershipPercentageMap,
-		HighWaterMark:       HighWaterMark{Amount: "0.0", Date: "None"},
+		ClosingValue:        map[int]string{0: "0"},
+		OpeningValue:        map[int]string{0: "0"},
+		FixedFees:           map[int]string{0: "0"},
+		PerformanceFees:     map[int]string{0: "0"},
+		Deposits:            map[int]string{0: "0"},
+		OwnershipPercentage: map[int]string{0: "0"},
+		HighWaterMark:       HighWaterMark{Amount: decimal.Zero.String(), Date: 0},
 		PeriodUpdated:       false,
 		FixedFee:            "0.02",
+		HasPerformanceFees:  hasPerformanceFees,
+		PerformanceFeeRate:  performanceFeeRate,
 	}
+
+	//if the capital account is created after the inception period of the fund we need to initialize
+	//all of the tracking values to 0
+	if currentPeriod > 0 {
+		for i := 1; i <= currentPeriod; i++ {
+			capitalAccount.ClosingValue[i] = "0"
+			capitalAccount.OpeningValue[i] = "0"
+			capitalAccount.FixedFees[i] = "0"
+			capitalAccount.PerformanceFees[i] = "0"
+			capitalAccount.Deposits[i] = "0"
+			capitalAccount.OwnershipPercentage[i] = "0"
+		}
+	}
+
 	return capitalAccount
 }
 
@@ -124,7 +149,15 @@ type CapitalAccountAction struct {
 	Period         int    `json:"period"`
 }
 
-func CreateDefaultCapitalAccountAction(transactionId string, capitalAccountId string, type_ string, amount string, full bool, date string, period int) CapitalAccountAction {
+func CreateDefaultCapitalAccountAction(
+	transactionId string,
+	capitalAccountId string,
+	type_ string,
+	amount string,
+	full bool,
+	date string,
+	period int,
+) CapitalAccountAction {
 	capitalAccountAction := CapitalAccountAction{
 		DocType:        doctypes.DOCTYPE_CAPITALACCOUNTACTION,
 		ID:             transactionId,
@@ -142,12 +175,14 @@ func CreateDefaultCapitalAccountAction(transactionId string, capitalAccountId st
 
 type HighWaterMark struct {
 	Amount string `json:"amount"`
-	Date   string `json:"date"`
+	Date   int    `json:"date"`
 }
 
 type CreateCapitalAccountRequest struct {
-	Fund     string `json:"fund" binding:"required"`
-	Investor string `json:"investor" binding:"required"`
+	Fund               string `json:"fund"     binding:"required"`
+	Investor           string `json:"investor" binding:"required"`
+	HasPerformanceFees bool   `json:"hasPerformanceFees" binding:"isdefault|required"`
+	PerformanceRate    string `json:"performanceRate" binding:"required"`
 }
 
 func ValidateCreateCapitalAccountRequest(r *CreateCapitalAccountRequest) bool {
@@ -156,11 +191,11 @@ func ValidateCreateCapitalAccountRequest(r *CreateCapitalAccountRequest) bool {
 
 type CreateCapitalAccountActionRequest struct {
 	CapitalAccount string `json:"capitalAccount" binding:"required"`
-	Type           string `json:"type" binding:"required"`
-	Amount         string `json:"amount" binding:"required"`
-	Full           bool   `json:"full" binding:"isdefault|required"`
-	Date           string `json:"date" binding:"required"`
-	Period         int    `json:"period" binding:"isdefault|required"`
+	Type           string `json:"type"           binding:"required"`
+	Amount         string `json:"amount"         binding:"required"`
+	Full           bool   `json:"full"           binding:"isdefault|required"`
+	Date           string `json:"date"           binding:"required"`
+	Period         int    `json:"period"         binding:"isdefault|required"`
 }
 
 func ValidateCreateCapitalAccountActionRequest(r *CreateCapitalAccountActionRequest) bool {

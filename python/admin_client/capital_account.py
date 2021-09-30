@@ -14,10 +14,12 @@ class CapitalAccount:
         self.investor = investor
 
     @classmethod
-    def create_capital_account(cls, fund, investor):
+    def create_capital_account(cls, fund, investor, hasPerformanceFees, performanceRate):
         data = {
             "fund": fund,
-            "investor": investor
+            "investor": investor,
+            "hasPerformanceFees": hasPerformanceFees,
+            "performanceRate": performanceRate,
         }
 
         r = requests.post(url=cls.url, data=json.dumps(data), headers=cls.headers)

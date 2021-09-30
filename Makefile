@@ -21,3 +21,7 @@ cleanWallet:
 .PHONY: testSmartcontract
 test:
 	/bin/bash ./scripts/testSmartcontract.sh
+
+.PHONY: lines
+lines:
+	/bin/bash ./scripts/lines.sh
